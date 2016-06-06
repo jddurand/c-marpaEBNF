@@ -1,0 +1,15 @@
+#ifndef MARPAEBNF_CONFIG_H
+#define MARPAEBNF_CONFIG_H
+
+#ifndef __cplusplus
+#  ifndef C_INLINE
+#    undef inline
+#  else
+#    ifndef C_INLINE_IS_INLINE
+/* Next line is never executed when inline is "inline" */
+#      define inline @C_INLINE@
+#    endif
+#  endif
+#endif
+
+#endif /* MARPAEBNF_CONFIG_H */
