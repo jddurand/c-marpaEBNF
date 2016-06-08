@@ -6,10 +6,8 @@
 #include "marpaWrapper.h"
 #include "marpaEBNF.h"
 
-/* List of all symbols of the EBNF grammar as per ISO/IEC 14977:1996 */
 typedef enum marpaEBNFSymbolIndice {
-  SYNTAX = 0,    /* Start symbol */
-  LETTER,
+  LETTER = 0,
   DECIMAL_DIGIT,
   CONCATENATE_SYMBOL,
   DEFINING_SYMBOL,
@@ -52,6 +50,7 @@ typedef enum marpaEBNFSymbolIndice {
   SPECIAL_SEQUENCE_CHARACTER,
   COMMENT_SYMBOL,
   BRACKETED_TEXTUAL_COMMENT,
+  SYNTAX,    /* Start symbol */
   SYNTAX_RULE,
   DEFINITIONS_LIST,
   SINGLE_DEFINITION,
@@ -62,6 +61,21 @@ typedef enum marpaEBNFSymbolIndice {
   COMMENT,
   _marpaEBNFSymbolIndice_MAX
 } marpaEBNFSymbolIndice_e;
+
+typedef struct marpaEBNFSymbol {
+  char                             *descriptions;
+  marpaWrapperGrammarSymbolOption_t option;
+} marpaEBNFSymbol_t;
+
+/* List of all symbols of the EBNF grammar as per ISO/IEC 14977:1996 */
+static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
+  /* ------------------------------------------------------------------------
+    descriptions    { terminalb, startb,                          eventSeti }
+    -------------------------------------------------------------------------
+  */
+  {"letter",        {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {"decimal digit", {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } }
+};
 
 /* Internally, EBNF is nothing else but an instance of marpaWrapperGrammar_t along */
 /* with symbols and rules book-keeping.                                            */
