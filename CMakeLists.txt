@@ -96,14 +96,14 @@ ADD_CUSTOM_TARGET(marpaEBNFConfig SOURCES "${CONFIG_H}")
 # ------------------
 # marpaEBNF library
 # -----------------
-FILE (GLOB lib_src ${lib_marpa_src} src/marpaEBNF/internal/*.c src/marpaEBNF/*.c)
+FILE (GLOB lib_src src/*.c)
 ADD_LIBRARY (marpaEBNF SHARED ${lib_src})
 INCLUDE_DIRECTORIES (
   "${INCLUDE_OUTPUT_PATH}"                             # Include path for generated files
   "${PROJECT_SOURCE_DIR}/include"                      # Include path for the other headers
   "${GENERICLOGGER_INCLUDE_DIRS}"                      # Include path for genericLogger (external - required)
   "${GENERICSTACK_INCLUDE_DIRS}"                       # Include path for genericStack (external - required)
-  "${MARPAWRAPPER_INCLUDE_DIRS}"                       # Include path for genericStack (external - required)
+  "${MARPAWRAPPER_INCLUDE_DIRS}"                       # Include path for marpaWrapper (external - required)
   )
 TARGET_LINK_LIBRARIES (marpaEBNF "${GENERICLOGGER_LINK_FLAGS}" "${MARPAWRAPPER_LINK_FLAGS}")
 SET_TARGET_PROPERTIES (marpaEBNF
