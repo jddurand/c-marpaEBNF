@@ -8,7 +8,8 @@
 
 /* List of all symbols of the EBNF grammar as per ISO/IEC 14977:1996 */
 typedef enum marpaEBNFSymbolIndice {
-  LETTER = 0,
+  SYNTAX = 0,    /* Start symbol */
+  LETTER,
   DECIMAL_DIGIT,
   CONCATENATE_SYMBOL,
   DEFINING_SYMBOL,
@@ -39,7 +40,6 @@ typedef enum marpaEBNFSymbolIndice {
   FIRST_TERMINAL_CHARACTER,
   SECOND_TERMINAL_CHARACTER,
   GAP_SEPARATOR,
-  SYNTAX,
   COMMENTLESS_SYMBOL,
   OPTIONAL_SEQUENCE,
   REPEATED_SEQUENCE,
@@ -96,6 +96,9 @@ marpaEBNF_t *marpaEBNF_newp(marpaEBNFOption_t *marpaEBNFOptionp)
   if (marpaEBNFp->marpaWrapperGrammarp == NULL) {
     goto err;
   }
+  if ( _marpaEBNF_internalGrammarb(marpaEBNFp) == 0) {
+    goto err;
+  }
 
   return marpaEBNFp;
 
@@ -127,6 +130,7 @@ static inline short _marpaEBNF_internalGrammarb(marpaEBNF_t *marpaEBNFp)
 {
   int i;
 
+  /* Declare all the symbols */
   for (i = 0; i < _marpaEBNFSymbolIndice_MAX; i++) {
     marpaEBNFp->symbolip[i] = MARPAWRAPPERGRAMMAR_NEWSYMBOL(marpaEBNFp->marpaWrapperGrammarp);
     if (marpaEBNFp->symbolip[i] < 0) {
