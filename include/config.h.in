@@ -1,6 +1,8 @@
 #ifndef MARPAEBNF_CONFIG_H
 #define MARPAEBNF_CONFIG_H
 
+#cmakedefine C_INLINE @C_INLINE@
+#cmakedefine C_INLINE_IS_INLINE @C_INLINE_IS_INLINE@
 #ifndef __cplusplus
 #  ifndef C_INLINE
 #    undef inline
