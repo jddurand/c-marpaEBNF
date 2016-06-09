@@ -102,7 +102,15 @@ typedef enum marpaEBNFSymbolEnum {
   _SPECIAL_SEQUENCE_CHARACTER_ALT_2,
   _SPECIAL_SEQUENCE_CHARACTER_ALT_2_MARKER,
 
-  _COMMENT_SYMBOL_ANY
+  _COMMENT_SYMBOL_ANY,
+
+  _BRACKETED_TEXTUAL_COMMENT_ANY,
+  _SYNTAX_UNIT,
+  _SYNTAX_UNIT_MANY,
+  _SYNTAX_01,
+
+  _SYNTAX_RULE_MANY,
+  _SYNTAX_02
 } marpaEBNFSymbol_e;
 
 typedef struct marpaEBNFSymbol {
@@ -386,12 +394,24 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <bracketed textual comment any> = <bracketed textual comment>*
    * <syntax unit> =  <commentless symbol> <bracketed textual comment any>
    * <syntax unit many> =  <syntax unit>+
-   * <syntax> = <bracketed textual comment any> <syntax unit many>
+   * <syntax 01> = <bracketed textual comment any> <syntax unit many>
+   * <syntax> = <syntax 01>
    */
+  {_BRACKETED_TEXTUAL_COMMENT_ANY, "<bracketed textual comment>*", { 0, 0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SYNTAX_UNIT,                   "<syntax unit>",                { 0, 0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SYNTAX_UNIT_MANY,              "<syntax unit>+",               { 0, 0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SYNTAX_01,                     "<syntax 01>",                  { 0, 0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
-  {_BRACKETED_TEXTUAL_COMMENT_ANY,   "<bracketed textual comment>*",           {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_SYNTAX_UNIT,   "<bracketed textual comment>*",           {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  */
+   * syntax = syntax rule, {syntax rule}
+   *
+   * is revisited to:
+   *
+   * <syntax rule many>> = <syntax rule>+
+   * <syntax 02> = <syntax rule many>
+   * <syntax> = <syntax 01>
+   */
+  {_SYNTAX_RULE_MANY,              "<syntax rule>+",               { 0, 0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SYNTAX_02,                     "<syntax 02>",                  { 0, 0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
 };
 
 static marpaEBNFRule_t marpaEBNFRuleArray[] = {
@@ -490,6 +510,19 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { "<comment symbol any>",          { 0, 0, 1,            -1, 0, 0 }, _COMMENT_SYMBOL_ANY,              1, { COMMENT_SYMBOL } },
   { "<bracketed textual comment>",   { 0, 0, 0,            -1, 0, 0 }, BRACKETED_TEXTUAL_COMMENT,        3, { START_COMMENT_SYMBOL, _COMMENT_SYMBOL_ANY, END_COMMENT_SYMBOL } },
 
+  { "<bracketed textual comment any>", { 0, 0, 1,          -1, 0, 0 }, _BRACKETED_TEXTUAL_COMMENT_ANY,   1, { BRACKETED_TEXTUAL_COMMENT } },
+  { "<syntax unit>",                 { 0, 0, 0,            -1, 0, 0 }, _SYNTAX_UNIT,                     2, { COMMENTLESS_SYMBOL, _BRACKETED_TEXTUAL_COMMENT_ANY } },
+  { "<syntax unit many>",            { 0, 0, 1,            -1, 0, 1 }, _SYNTAX_UNIT_MANY,                1, { _SYNTAX_UNIT } },
+  { "<syntax 01>",                   { 0, 0, 0,            -1, 0, 0 }, _SYNTAX_01,                       2, { _BRACKETED_TEXTUAL_COMMENT_ANY, _SYNTAX_UNIT_MANY } },
+  { "<syntax>",                      { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           1, { _SYNTAX_01 } },
+
+  { "<syntax rule many>",            { 0, 0, 1,            -1, 0, 1 }, _SYNTAX_RULE_MANY,                1, { SYNTAX_RULE } },
+  { "<syntax 02>",                   { 0, 0, 0,            -1, 0, 0 }, _SYNTAX_02,                       1, { _SYNTAX_RULE_MANY } },
+  { "<syntax>",                      { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           1, { _SYNTAX_02 } },
+
+  { "<syntax rule>",                 { 0, 0, 0,            -1, 0, 0 }, SYNTAX_RULE,                      4, { META_IDENTIFIER, DEFINING_SYMBOL, DEFINITIONS_LIST, TERMINATOR_SYMBOL } },
+
+  { "<definitions list>",            { 0, 0, 1,  DEFINITION_SEPARATOR_SYMBOL, 0, 1 }, DEFINITIONS_LIST,  1, { SINGLE_DEFINITION } },
 };
 
 /* Internally, EBNF is nothing else but an instance of marpaWrapperGrammar_t along */
