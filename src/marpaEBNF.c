@@ -236,8 +236,8 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * _SECOND_TERMINAL_CHARACTER_MANY = <second terminal character>+
    *
    */
-  {_FIRST_TERMINAL_CHARACTER_MANY,  "<first terminal character +>",       {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_SECOND_TERMINAL_CHARACTER_MANY, "<second terminal character +>",      {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_FIRST_TERMINAL_CHARACTER_MANY,  "<first terminal character many>",     {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SECOND_TERMINAL_CHARACTER_MANY, "<second terminal character many>",    {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * first terminal character = terminal character - first quote symbol
    *
@@ -275,8 +275,8 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <gap free symbol many> = <gap free symbol>+ separator => <gap separator> proper => 0
    * <syntax> = <gap separator any> <gap free symbol many>
    */
-  {_GAP_SEPARATOR_ANY,              "<gap separator *>",                  {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_GAP_FREE_SYMBOL_MANY,           "<gap free symbol +>",                {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_GAP_SEPARATOR_ANY,              "<gap separator any>",                {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_GAP_FREE_SYMBOL_MANY,           "<gap free symbol many>",             {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * comment less symbol = terminal character
    *                       - (letter
@@ -325,7 +325,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <integer> = <decimal digit many>
    * <decimal digit many> = <decimal digit>+
    */
-  {_DECIMAL_DIGIT_MANY,             "<decimal digit +>",                  {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_DECIMAL_DIGIT_MANY,             "<decimal digit many>",                      {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
 };
 
 static marpaEBNFRule_t marpaEBNFRuleArray[] = {
@@ -358,10 +358,10 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { "<gap free symbol alt 1.2>",     { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2,         1, { FIRST_QUOTE_SYMBOL } },
   { "<gap free symbol alt 1.2>",     { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2,         1, { SECOND_QUOTE_SYMBOL } },
 
-  { "<terminal string>",             { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { FIRST_QUOTE_SYMBOL, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL } },
-  { "<terminal string>",             { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { SECOND_QUOTE_SYMBOL, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
-  { "<first terminal character +>",  { 0, 0, 1,            -1, 0, 1 }, _FIRST_TERMINAL_CHARACTER_MANY,   1, { FIRST_TERMINAL_CHARACTER } },
-  { "<second terminal character +>", { 0, 0, 1,            -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY,  1, { SECOND_TERMINAL_CHARACTER } },
+  { "<terminal string>",                { 0, 0, 0,         -1, 0, 0 }, TERMINAL_STRING,                  3, { FIRST_QUOTE_SYMBOL, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL } },
+  { "<terminal string>",                { 0, 0, 0,         -1, 0, 0 }, TERMINAL_STRING,                  3, { SECOND_QUOTE_SYMBOL, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
+  { "<first terminal character many>",  { 0, 0, 1,         -1, 0, 1 }, _FIRST_TERMINAL_CHARACTER_MANY,   1, { FIRST_TERMINAL_CHARACTER } },
+  { "<second terminal character many>", { 0, 0, 1,         -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY,  1, { SECOND_TERMINAL_CHARACTER } },
 
   { "<first terminal character>",       { 0, 0, 0,         -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         2, { _FIRST_TERMINAL_CHARACTER_ALT_1, _FIRST_TERMINAL_CHARACTER_ALT_1_MARKER } },
   { "<first terminal character>",       { 0, 0, 0,         -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         2, { _FIRST_TERMINAL_CHARACTER_ALT_2, _FIRST_TERMINAL_CHARACTER_ALT_2_MARKER } },
@@ -379,8 +379,8 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { "<gap separator>",               { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { VERTICAL_TABULATION_CHARACTER } },
   { "<gap separator>",               { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { FORM_FEED } },
 
-  { "<gap separator *>",             { 0, 0, 1,            -1, 0, 0 }, _GAP_SEPARATOR_ANY,               1, { GAP_SEPARATOR } },
-  { "<gap free symbol +>",           { 0, 0, 1, GAP_SEPARATOR, 0, 1 }, _GAP_FREE_SYMBOL_MANY,            1, { GAP_SEPARATOR } },
+  { "<gap separator any>",           { 0, 0, 1,            -1, 0, 0 }, _GAP_SEPARATOR_ANY,               1, { GAP_SEPARATOR } },
+  { "<gap free symbol many>",        { 0, 0, 1, GAP_SEPARATOR, 0, 1 }, _GAP_FREE_SYMBOL_MANY,            1, { GAP_SEPARATOR } },
   { "<syntax>",                      { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _GAP_SEPARATOR_ANY, _GAP_FREE_SYMBOL_MANY } },
 
   { "<comment less symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENT_LESS_SYMBOL,              1, { _COMMENT_LESS_SYMBOL_ALT_1 } },
@@ -400,7 +400,7 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { SPECIAL_SEQUENCE_SYMBOL } },
   { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { OTHER_CHARACTER } },
 
-  { "<decimal digit +>",             { 0, 0, 1,            -1, 0, 1 }, _DECIMAL_DIGIT_MANY,              1, { DECIMAL_DIGIT } },
+  { "<decimal digit many>",          { 0, 0, 1,            -1, 0, 1 }, _DECIMAL_DIGIT_MANY,              1, { DECIMAL_DIGIT } },
   { "<integer>",                     { 0, 0, 0,            -1, 0, 0 }, INTEGER,                          1, { _DECIMAL_DIGIT_MANY } },
 };
 
