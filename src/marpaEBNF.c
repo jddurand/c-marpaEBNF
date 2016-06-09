@@ -312,6 +312,7 @@ void marpaEBNF_freev(marpaEBNF_t *marpaEBNFp)
     if (marpaEBNFp->marpaWrapperGrammarp != NULL) {
       marpaWrapperGrammar_freev(marpaEBNFp->marpaWrapperGrammarp);
     }
+    free(marpaEBNFp);
   }
 }
 
