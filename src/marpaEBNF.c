@@ -252,6 +252,14 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { "<terminal string>",         { 0, 0, 0, 0, 0, 0 }, TERMINAL_STRING, 3, { SECOND_QUOTE_SYMBOL, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
   { "<first terminal character many>",  { 0, 0, 1, -1, 0, 1 }, _FIRST_TERMINAL_CHARACTER_MANY,  1, { FIRST_TERMINAL_CHARACTER } },
   { "<second terminal character many>", { 0, 0, 1, -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY, 1, { SECOND_TERMINAL_CHARACTER } },
+
+  { "<first terminal character>", { 0, 0, 0, 0, 0, 0 }, FIRST_TERMINAL_CHARACTER, 2, { TERMINAL_CHARACTER, FIRST_QUOTE_SYMBOL } },
+  { "<second terminal character>", { 0, 0, 0, 0, 0, 0 }, SECOND_TERMINAL_CHARACTER, 2, { TERMINAL_CHARACTER, SECOND_QUOTE_SYMBOL } },
+  { "<gap separator>", { 0, 0, 0, 0, 0, 0 }, GAP_SEPARATOR, 1, { SPACE_CHARACTER } },
+  { "<gap separator>", { 0, 0, 0, 0, 0, 0 }, GAP_SEPARATOR, 1, { HORIZONTAL_TABULATION_CHARACTER } },
+  { "<gap separator>", { 0, 0, 0, 0, 0, 0 }, GAP_SEPARATOR, 1, { NEW_LINE } },
+  { "<gap separator>", { 0, 0, 0, 0, 0, 0 }, GAP_SEPARATOR, 1, { VERTICAL_TABULATION_CHARACTER } },
+  { "<gap separator>", { 0, 0, 0, 0, 0, 0 }, GAP_SEPARATOR, 1, { FORM_FEED } },
 };
 
 /* Internally, EBNF is nothing else but an instance of marpaWrapperGrammar_t along */
