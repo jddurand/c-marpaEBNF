@@ -42,7 +42,7 @@ typedef enum marpaEBNFSymbolEnum {
   SECOND_TERMINAL_CHARACTER,
   GAP_SEPARATOR,
   SYNTAX,
-  COMMENTLESS_SYMBOL,
+  COMMENT_LESS_SYMBOL,
   INTEGER,
   META_IDENTIFIER,
   META_IDENTIFIER_CHARACTER,
@@ -70,7 +70,28 @@ typedef enum marpaEBNFSymbolEnum {
   _GAP_FREE_SYMBOL_ALT_1_2_MARKER,
 
   _FIRST_TERMINAL_CHARACTER_MANY,
-  _SECOND_TERMINAL_CHARACTER_MANY
+  _SECOND_TERMINAL_CHARACTER_MANY,
+
+  _FIRST_TERMINAL_CHARACTER_ALT_1,
+  _FIRST_TERMINAL_CHARACTER_ALT_1_MARKER,
+  _FIRST_TERMINAL_CHARACTER_ALT_2,
+  _FIRST_TERMINAL_CHARACTER_ALT_2_MARKER,
+
+  _SECOND_TERMINAL_CHARACTER_ALT_1,
+  _SECOND_TERMINAL_CHARACTER_ALT_1_MARKER,
+  _SECOND_TERMINAL_CHARACTER_ALT_2,
+  _SECOND_TERMINAL_CHARACTER_ALT_2_MARKER,
+
+  _GAP_SEPARATOR_ANY,
+  _GAP_FREE_SYMBOL_MANY,
+
+  _COMMENT_LESS_SYMBOL_ALT_1,
+  _COMMENT_LESS_SYMBOL_ALT_1_1,
+  _COMMENT_LESS_SYMBOL_ALT_1_2,
+  _COMMENT_LESS_SYMBOL_ALT_1_1_MARKER,
+  _COMMENT_LESS_SYMBOL_ALT_1_2_MARKER,
+
+  _DECIMAL_DIGIT_MANY
 } marpaEBNFSymbol_e;
 
 typedef struct marpaEBNFSymbol {
@@ -131,7 +152,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
   {SECOND_TERMINAL_CHARACTER,       "<second terminal character>",       {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {GAP_SEPARATOR,                   "<gap separator>",                   {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {SYNTAX,                          "<syntax>",                          {         0,      1, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },  /* START */
-  {COMMENTLESS_SYMBOL,              "<commentless symbol>",              {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {COMMENT_LESS_SYMBOL,             "<comment less symbol>",             {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {INTEGER,                         "<integer>",                         {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {META_IDENTIFIER,                 "<meta identifier>",                 {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {META_IDENTIFIER_CHARACTER,       "<meta identifier character>",       {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
@@ -215,51 +236,172 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * _SECOND_TERMINAL_CHARACTER_MANY = <second terminal character>+
    *
    */
-  {_FIRST_TERMINAL_CHARACTER_MANY,  "<first terminal character many>",   {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_SECOND_TERMINAL_CHARACTER_MANY, "<second terminal character many>",  {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_FIRST_TERMINAL_CHARACTER_MANY,  "<first terminal character +>",       {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SECOND_TERMINAL_CHARACTER_MANY, "<second terminal character +>",      {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+   * first terminal character = terminal character - first quote symbol
+   *
+   * is revisited to:
+   *
+   * first terminal character = first terminal character alt 1 _FIRST_TERMINAL_CHARACTER_ALT_1_MARKER
+   * first terminal character = first terminal character alt 2 _FIRST_TERMINAL_CHARACTER_ALT_2_MARKER
+   * first terminal character alt 1 = terminal character
+   * first terminal character alt 2 = first quote symbol
+   */
+  {_FIRST_TERMINAL_CHARACTER_ALT_1,        "<first terminal character alt 1>",        {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
+  {_FIRST_TERMINAL_CHARACTER_ALT_1_MARKER, "<first terminal character alt 1 marker>", {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_FIRST_TERMINAL_CHARACTER_ALT_2,        "<first terminal character alt 2>",        {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
+  {_FIRST_TERMINAL_CHARACTER_ALT_2_MARKER, "<first terminal character alt 2 marker>", {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+   * second terminal character = terminal character - second quote symbol
+   *
+   * is revisited to:
+   *
+   * second terminal character = second terminal character alt 1 _SECOND_TERMINAL_CHARACTER_ALT_1_MARKER
+   * second terminal character = second terminal character alt 2 _SECOND_TERMINAL_CHARACTER_ALT_2_MARKER
+   * second terminal character alt 1 = terminal character
+   * second terminal character alt 2 = second quote symbol
+   */
+  {_SECOND_TERMINAL_CHARACTER_ALT_1,        "<second terminal character alt 1>",        {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
+  {_SECOND_TERMINAL_CHARACTER_ALT_1_MARKER, "<second terminal character alt 1 marker>", {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SECOND_TERMINAL_CHARACTER_ALT_2,        "<second terminal character alt 2>",        {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
+  {_SECOND_TERMINAL_CHARACTER_ALT_2_MARKER, "<second terminal character alt 2 marker>", {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+   * syntax = {gap separator}, gap free symbol, {gap separator}, {gap free symbol, {gap separator}}
+   *
+   * is revisited to:
+   *
+   * <gap separator any> = <gap separator>*
+   * <gap free symbol many> = <gap free symbol>+ separator => <gap separator> proper => 0
+   * <syntax> = <gap separator any> <gap free symbol many>
+   */
+  {_GAP_SEPARATOR_ANY,              "<gap separator *>",                  {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_GAP_FREE_SYMBOL_MANY,           "<gap free symbol +>",                {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+   * comment less symbol = terminal character
+   *                       - (letter
+   *                         | decimal digit
+   *                         | first quote symbol
+   *                         | second quote symbol
+   *                         | start comment symbol
+   *                         | end comment symbol
+   *                         | special sequence symbol
+   *                         | other character)
+   *                     | meta identifier
+   *                     | integer
+   *                     | terminal string
+   *                     | special sequence
+   *
+   * is revisited to:
+   *
+   * comment less symbol = comment less symbol alt 1
+   *                     | meta identifier
+   *                     | integer
+   *                     | terminal string
+   *                     | special sequence
+   * comment less symbol alt 1 = comment less symbol alt 1.1 _COMMENT_LESS_SYMBOL_ALT_1_1_MARKER
+   *                             comment less symbol alt 1.2 _COMMENT_LESS_SYMBOL_ALT_1_2_MARKER
+   * comment less symbol alt 1.1 = terminal character
+   * comment less symbol alt 1.2 = letter
+   *                             | decimal digit
+   *                             | first quote symbol
+   *                             | second quote symbol
+   *                             | start comment symbol
+   *                             | end comment symbol
+   *                             | special sequence symbol
+   *                             | other character)
+   *
+   */
+  {_COMMENT_LESS_SYMBOL_ALT_1,          "<comment less symbol alt 1>",           {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_COMMENT_LESS_SYMBOL_ALT_1_1,        "<comment less symbol alt 1.1>",         {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
+  {_COMMENT_LESS_SYMBOL_ALT_1_2,        "<comment less symbol alt 1.2>",         {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
+  {_COMMENT_LESS_SYMBOL_ALT_1_1_MARKER, "<comment less symbol alt 1.1 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_COMMENT_LESS_SYMBOL_ALT_1_2_MARKER, "<comment less symbol alt 1.2 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+   * integer = decimal digit, {decimal digit}
+   *
+   * is revisited to:
+   *
+   * <integer> = <decimal digit many>
+   * <decimal digit many> = <decimal digit>+
+   */
+  {_DECIMAL_DIGIT_MANY,             "<decimal digit +>",                  {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
 };
 
 static marpaEBNFRule_t marpaEBNFRuleArray[] = {
-  { "<terminal character>", { 0, 0, 0, 0, 0, 0 }, TERMINAL_CHARACTER, 20, { LETTER,
-									    DECIMAL_DIGIT,
-									    CONCATENATE_SYMBOL,
-									    DEFINING_SYMBOL,
-									    DEFINITION_SEPARATOR_SYMBOL,
-									    END_COMMENT_SYMBOL,
-									    END_GROUP_SYMBOL,
-									    END_OPTION_SYMBOL,
-									    END_REPEAT_SYMBOL,
-									    EXCEPT_SYMBOL,
-									    FIRST_QUOTE_SYMBOL,
-									    REPETITION_SYMBOL,
-									    SECOND_QUOTE_SYMBOL,
-									    SPECIAL_SEQUENCE_SYMBOL,
-									    START_COMMENT_SYMBOL,
-									    START_GROUP_SYMBOL,
-									    START_OPTION_SYMBOL,
-									    START_REPEAT_SYMBOL,
-									    TERMINATOR_SYMBOL,
-									    OTHER_CHARACTER } },
-  { "<gap free symbol>",         { 0, 0, 0, 0, 0, 0 }, GAP_FREE_SYMBOL, 1, { _GAP_FREE_SYMBOL_ALT_1 } },
-  { "<gap free symbol>",         { 0, 0, 0, 0, 0, 0 }, GAP_FREE_SYMBOL, 1, { TERMINAL_STRING } },
-  { "<gap free symbol alt 1>",   { 0, 0, 0, 0, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1,   2, { _GAP_FREE_SYMBOL_ALT_1_1, _GAP_FREE_SYMBOL_ALT_1_1_MARKER } },
-  { "<gap free symbol alt 1>",   { 0, 0, 0, 0, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1,   2, { _GAP_FREE_SYMBOL_ALT_1_2, _GAP_FREE_SYMBOL_ALT_1_2_MARKER } },
-  { "<gap free symbol alt 1.1>", { 0, 0, 0, 0, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_1, 1, { TERMINAL_CHARACTER } },
-  { "<gap free symbol alt 1.2>", { 0, 0, 0, 0, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2, 1, { FIRST_QUOTE_SYMBOL } },
-  { "<gap free symbol alt 1.2>", { 0, 0, 0, 0, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2, 1, { SECOND_QUOTE_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { LETTER } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { DECIMAL_DIGIT } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { CONCATENATE_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { DEFINING_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { DEFINITION_SEPARATOR_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { END_COMMENT_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { END_GROUP_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { END_OPTION_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { END_REPEAT_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { EXCEPT_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { FIRST_QUOTE_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { REPETITION_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { SECOND_QUOTE_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { SPECIAL_SEQUENCE_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_COMMENT_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_GROUP_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_OPTION_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_REPEAT_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { TERMINATOR_SYMBOL } },
+  { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { OTHER_CHARACTER } },
 
-  { "<terminal string>",         { 0, 0, 0, 0, 0, 0 }, TERMINAL_STRING, 3, { FIRST_QUOTE_SYMBOL, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL } },
-  { "<terminal string>",         { 0, 0, 0, 0, 0, 0 }, TERMINAL_STRING, 3, { SECOND_QUOTE_SYMBOL, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
-  { "<first terminal character many>",  { 0, 0, 1, -1, 0, 1 }, _FIRST_TERMINAL_CHARACTER_MANY,  1, { FIRST_TERMINAL_CHARACTER } },
-  { "<second terminal character many>", { 0, 0, 1, -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY, 1, { SECOND_TERMINAL_CHARACTER } },
+  { "<gap free symbol>",             { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  1, { _GAP_FREE_SYMBOL_ALT_1 } },
+  { "<gap free symbol>",             { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  1, { TERMINAL_STRING } },
+  { "<gap free symbol alt 1>",       { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1,           2, { _GAP_FREE_SYMBOL_ALT_1_1, _GAP_FREE_SYMBOL_ALT_1_1_MARKER } },
+  { "<gap free symbol alt 1>",       { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1,           2, { _GAP_FREE_SYMBOL_ALT_1_2, _GAP_FREE_SYMBOL_ALT_1_2_MARKER } },
+  { "<gap free symbol alt 1.1>",     { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_1,         1, { TERMINAL_CHARACTER } },
+  { "<gap free symbol alt 1.2>",     { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2,         1, { FIRST_QUOTE_SYMBOL } },
+  { "<gap free symbol alt 1.2>",     { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2,         1, { SECOND_QUOTE_SYMBOL } },
 
-  { "<first terminal character>", { 0, 0, 0, 0, 0, 0 }, FIRST_TERMINAL_CHARACTER, 2, { TERMINAL_CHARACTER, FIRST_QUOTE_SYMBOL } },
-  { "<second terminal character>", { 0, 0, 0, 0, 0, 0 }, SECOND_TERMINAL_CHARACTER, 2, { TERMINAL_CHARACTER, SECOND_QUOTE_SYMBOL } },
-  { "<gap separator>", { 0, 0, 0, 0, 0, 0 }, GAP_SEPARATOR, 1, { SPACE_CHARACTER } },
-  { "<gap separator>", { 0, 0, 0, 0, 0, 0 }, GAP_SEPARATOR, 1, { HORIZONTAL_TABULATION_CHARACTER } },
-  { "<gap separator>", { 0, 0, 0, 0, 0, 0 }, GAP_SEPARATOR, 1, { NEW_LINE } },
-  { "<gap separator>", { 0, 0, 0, 0, 0, 0 }, GAP_SEPARATOR, 1, { VERTICAL_TABULATION_CHARACTER } },
-  { "<gap separator>", { 0, 0, 0, 0, 0, 0 }, GAP_SEPARATOR, 1, { FORM_FEED } },
+  { "<terminal string>",             { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { FIRST_QUOTE_SYMBOL, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL } },
+  { "<terminal string>",             { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { SECOND_QUOTE_SYMBOL, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
+  { "<first terminal character +>",  { 0, 0, 1,            -1, 0, 1 }, _FIRST_TERMINAL_CHARACTER_MANY,   1, { FIRST_TERMINAL_CHARACTER } },
+  { "<second terminal character +>", { 0, 0, 1,            -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY,  1, { SECOND_TERMINAL_CHARACTER } },
+
+  { "<first terminal character>",       { 0, 0, 0,         -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         2, { _FIRST_TERMINAL_CHARACTER_ALT_1, _FIRST_TERMINAL_CHARACTER_ALT_1_MARKER } },
+  { "<first terminal character>",       { 0, 0, 0,         -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         2, { _FIRST_TERMINAL_CHARACTER_ALT_2, _FIRST_TERMINAL_CHARACTER_ALT_2_MARKER } },
+  { "<first terminal character alt 1>", { 0, 0, 0,         -1, 0, 0 }, _FIRST_TERMINAL_CHARACTER_ALT_1,  1, { TERMINAL_CHARACTER } },
+  { "<first terminal character alt 2>", { 0, 0, 0,         -1, 0, 0 }, _FIRST_TERMINAL_CHARACTER_ALT_2,  1, { FIRST_QUOTE_SYMBOL } },
+
+  { "<second terminal character>",       { 0, 0, 0,        -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,         2, { _SECOND_TERMINAL_CHARACTER_ALT_1, _SECOND_TERMINAL_CHARACTER_ALT_1_MARKER } },
+  { "<second terminal character>",       { 0, 0, 0,        -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,         2, { _SECOND_TERMINAL_CHARACTER_ALT_2, _SECOND_TERMINAL_CHARACTER_ALT_2_MARKER } },
+  { "<second terminal character alt 1>", { 0, 0, 0,        -1, 0, 0 }, _SECOND_TERMINAL_CHARACTER_ALT_1,  1, { TERMINAL_CHARACTER } },
+  { "<second terminal character alt 2>", { 0, 0, 0,        -1, 0, 0 }, _SECOND_TERMINAL_CHARACTER_ALT_2,  1, { SECOND_QUOTE_SYMBOL } },
+
+  { "<gap separator>",               { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { SPACE_CHARACTER } },
+  { "<gap separator>",               { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { HORIZONTAL_TABULATION_CHARACTER } },
+  { "<gap separator>",               { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { NEW_LINE } },
+  { "<gap separator>",               { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { VERTICAL_TABULATION_CHARACTER } },
+  { "<gap separator>",               { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { FORM_FEED } },
+
+  { "<gap separator *>",             { 0, 0, 1,            -1, 0, 0 }, _GAP_SEPARATOR_ANY,               1, { GAP_SEPARATOR } },
+  { "<gap free symbol +>",           { 0, 0, 1, GAP_SEPARATOR, 0, 1 }, _GAP_FREE_SYMBOL_MANY,            1, { GAP_SEPARATOR } },
+  { "<syntax>",                      { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _GAP_SEPARATOR_ANY, _GAP_FREE_SYMBOL_MANY } },
+
+  { "<comment less symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENT_LESS_SYMBOL,              1, { _COMMENT_LESS_SYMBOL_ALT_1 } },
+  { "<comment less symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENT_LESS_SYMBOL,              1, { META_IDENTIFIER } },
+  { "<comment less symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENT_LESS_SYMBOL,              1, { INTEGER } },
+  { "<comment less symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENT_LESS_SYMBOL,              1, { TERMINAL_STRING } },
+  { "<comment less symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENT_LESS_SYMBOL,              1, { SPECIAL_SEQUENCE } },
+  { "<comment less symbol alt 1>",   { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1,       2, { _COMMENT_LESS_SYMBOL_ALT_1_1, _COMMENT_LESS_SYMBOL_ALT_1_1_MARKER } },
+  { "<comment less symbol alt 1>",   { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1,       2, { _COMMENT_LESS_SYMBOL_ALT_1_2, _COMMENT_LESS_SYMBOL_ALT_1_2_MARKER } },
+  { "<comment less symbol alt 1.1>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_1,     1, { TERMINAL_CHARACTER } },
+  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { LETTER } },
+  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { DECIMAL_DIGIT } },
+  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { FIRST_QUOTE_SYMBOL } },
+  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { SECOND_QUOTE_SYMBOL } },
+  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { START_COMMENT_SYMBOL } },
+  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { END_COMMENT_SYMBOL } },
+  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { SPECIAL_SEQUENCE_SYMBOL } },
+  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { OTHER_CHARACTER } },
+
+  { "<decimal digit +>",             { 0, 0, 1,            -1, 0, 1 }, _DECIMAL_DIGIT_MANY,              1, { DECIMAL_DIGIT } },
+  { "<integer>",                     { 0, 0, 0,            -1, 0, 0 }, INTEGER,                          1, { _DECIMAL_DIGIT_MANY } },
 };
 
 /* Internally, EBNF is nothing else but an instance of marpaWrapperGrammar_t along */
