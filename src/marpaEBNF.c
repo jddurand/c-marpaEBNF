@@ -61,7 +61,16 @@ typedef enum marpaEBNFSymbolEnum {
   REPEATED_SEQUENCE,
   GROUPED_SEQUENCE,
   EMPTY_SEQUENCE,
-  COMMENT
+  COMMENT,
+  /* Internal symbols */
+  _GAP_FREE_SYMBOL_ALT_1,
+  _GAP_FREE_SYMBOL_ALT_1_1,
+  _GAP_FREE_SYMBOL_ALT_1_2,
+  _GAP_FREE_SYMBOL_ALT_1_1_MARKER,
+  _GAP_FREE_SYMBOL_ALT_1_2_MARKER,
+
+  _FIRST_TERMINAL_CHARACTER_MANY,
+  _SECOND_TERMINAL_CHARACTER_MANY
 } marpaEBNFSymbol_e;
 
 typedef struct marpaEBNFSymbol {
@@ -70,10 +79,18 @@ typedef struct marpaEBNFSymbol {
   marpaWrapperGrammarSymbolOption_t option;
 } marpaEBNFSymbol_t;
 
+typedef struct marpaEBNFRule {
+  char                             *descriptions;
+  marpaWrapperGrammarRuleOption_t   option;
+  int                               lhsSymboli;
+  size_t                            rhsSymboll;
+  int                               rhsSymbolip[20]; /* Flexible array and ANSI-C are not friends */
+} marpaEBNFRule_t;
+
 /* List of all symbols of the EBNF grammar as per ISO/IEC 14977:1996 */
 static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
   /* ------------------------------------------------------------------------------------------
-    descriptions                      { terminalb, startb,                          eventSeti }
+    symboli                          descriptions                      { terminalb, startb,                          eventSeti }
     -------------------------------------------------------------------------------------------
   */
   /*
@@ -134,6 +151,107 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
   {GROUPED_SEQUENCE,                "grouped sequence",                {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {EMPTY_SEQUENCE,                  "empty sequence",                  {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {COMMENT,                         "comment",                         {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+    Note: handling of the exception with standard BNF
+    *
+    * Given a rule
+    *   X = A - B
+    *
+    * it is rewriten as:
+    *   X = A MARKER_A    # With a completion or nulled event on A
+    *   X = B MARKER_B    # With a completion or nulled event on B
+    *
+    * During lexing phase:
+    * 1. If the context is the X rule
+    *   a. If there is an event on A we insert MARKER_A
+    *   b. If there is an event on B we do nothing
+    * 2. Else
+    *   a. we do nothing
+    *
+    * For performance reasons, the above algorithm is done in reverse way:
+    * 1. If there is an event on A
+    *   a. If the context is rule X we insert MARKER_A
+    *   b. Else we do nothing
+    * 2. Else
+    *   a. we do nothing
+    */
+  /* ---------------- */
+  /* Internal symbols */
+  /* ---------------- */
+  /*
+   * gap free symbol = terminal character - (first quote symbol | second quote symbol)
+   *                   | terminal string
+   *
+   * is revisited to:
+   *
+   * gap free symbol         = gap free symbol alt 1
+   *                         | terminal string
+   *
+   * gap free symbol alt 1   = gap free symbol alt 1.1 _GAP_FREE_SYMBOL_ALT_1_1_MARKER
+   *                         | gap free symbol alt 1.2 _GAP_FREE_SYMBOL_ALT_1_2_MARKER
+   *
+   * + COMPLETION EVENT ON gap free symbol alt 1.1
+   * gap free symbol alt 1.1 = terminal character
+   *
+   * + COMPLETION EVENT ON <gap free symbol alt 1.2>
+   * gap free symbol alt 1.2 = first quote symbol
+   *                         | second quote symbol
+   */
+  {_GAP_FREE_SYMBOL_ALT_1,          "gap free symbol alt 1",           {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_GAP_FREE_SYMBOL_ALT_1_1,        "gap free symbol alt 1.1",         {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
+  {_GAP_FREE_SYMBOL_ALT_1_2,        "gap free symbol alt 1.2",         {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
+  {_GAP_FREE_SYMBOL_ALT_1_1_MARKER, "gap free symbol alt 1.1 marker",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_GAP_FREE_SYMBOL_ALT_1_2_MARKER, "gap free symbol alt 1.2 marker",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+   * terminal string = first quote symbol, first terminal character, {first terminal character}, first quote symbol
+   *                 | second quote symbol, second terminal character, {second terminal character}, second quote symbol
+   *
+   * is revisited to:
+   *
+   * terminal string = first quote symbol, _FIRST_TERMINAL_CHARACTER_MANY, first quote symbol
+   *                 | second quote symbol, _SECOND_TERMINAL_CHARACTER_MANY, second quote symbol
+   *
+   * _FIRST_TERMINAL_CHARACTER_MANY = <first terminal character>+
+   * _SECOND_TERMINAL_CHARACTER_MANY = <second terminal character>+
+   *
+   */
+  {_FIRST_TERMINAL_CHARACTER_MANY,  "first terminal character many",   {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SECOND_TERMINAL_CHARACTER_MANY, "second terminal character many",  {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+};
+
+static marpaEBNFRule_t marpaEBNFRuleArray[] = {
+  { "terminal character", { 0, 0, 0, 0, 0, 0 }, TERMINAL_CHARACTER, 20, { LETTER,
+									  DECIMAL_DIGIT,
+									  CONCATENATE_SYMBOL,
+									  DEFINING_SYMBOL,
+									  DEFINITION_SEPARATOR_SYMBOL,
+									  END_COMMENT_SYMBOL,
+									  END_GROUP_SYMBOL,
+									  END_OPTION_SYMBOL,
+									  END_REPEAT_SYMBOL,
+									  EXCEPT_SYMBOL,
+									  FIRST_QUOTE_SYMBOL,
+									  REPETITION_SYMBOL,
+									  SECOND_QUOTE_SYMBOL,
+									  SPECIAL_SEQUENCE_SYMBOL,
+									  START_COMMENT_SYMBOL,
+									  START_GROUP_SYMBOL,
+									  START_OPTION_SYMBOL,
+									  START_REPEAT_SYMBOL,
+									  TERMINATOR_SYMBOL,
+									  OTHER_CHARACTER } },
+  { "gap free symbol",         { 0, 0, 0, 0, 0, 0 }, GAP_FREE_SYMBOL, 1, { _GAP_FREE_SYMBOL_ALT_1 } },
+  { "gap free symbol",         { 0, 0, 0, 0, 0, 0 }, GAP_FREE_SYMBOL, 1, { TERMINAL_STRING } },
+  { "gap free symbol alt 1",   { 0, 0, 0, 0, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1,   2, { _GAP_FREE_SYMBOL_ALT_1_1, _GAP_FREE_SYMBOL_ALT_1_1_MARKER } },
+  { "gap free symbol alt 1",   { 0, 0, 0, 0, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1,   2, { _GAP_FREE_SYMBOL_ALT_1_2, _GAP_FREE_SYMBOL_ALT_1_2_MARKER } },
+  { "gap free symbol alt 1.1", { 0, 0, 0, 0, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_1, 1, { TERMINAL_CHARACTER } },
+  { "gap free symbol alt 1.2", { 0, 0, 0, 0, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2, 1, { FIRST_QUOTE_SYMBOL } },
+  { "gap free symbol alt 1.2", { 0, 0, 0, 0, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2, 1, { SECOND_QUOTE_SYMBOL } },
+
+  { "terminal string",         { 0, 0, 0, 0, 0, 0 }, TERMINAL_STRING, 3, { FIRST_QUOTE_SYMBOL, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL } },
+  { "terminal string",         { 0, 0, 0, 0, 0, 0 }, TERMINAL_STRING, 3, { SECOND_QUOTE_SYMBOL, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
+  { "first terminal character many", { 0, 0, 1, -1, 0, 1 },  _FIRST_TERMINAL_CHARACTER_MANY,  1, { FIRST_TERMINAL_CHARACTER } },
+  { "second terminal character many", { 0, 0, 1, -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY, 1, { SECOND_TERMINAL_CHARACTER } },
 };
 
 /* Internally, EBNF is nothing else but an instance of marpaWrapperGrammar_t along */
@@ -193,17 +311,33 @@ void marpaEBNF_freev(marpaEBNF_t *marpaEBNFp)
 static inline short _marpaEBNF_internalGrammarb(marpaEBNF_t *marpaEBNFp)
 /****************************************************************************/
 {
-  int i, symboli;
+  int i;
+  int symboli;
+  int rulei;
 
   /* Declare all the symbols */
-  for (i = 0; i < (sizeof(marpaEBNFSymbolArray) / sizeof(marpaEBNFSymbolArray[0])); i++) {
-    symboli = marpaWrapperGrammar_newSymboli(marpaEBNFp->marpaWrapperGrammarp, &(marpaEBNFSymbolArray[i].option));
+  for (i = 0; i < MARPAEBNF_SIZEOF_ARRAY(marpaEBNFSymbolArray); i++) {
+    symboli = marpaWrapperGrammar_newSymboli(marpaEBNFp->marpaWrapperGrammarp,
+					     &(marpaEBNFSymbolArray[i].option));
     /* We take advantage of the fact that symbols always start at 0 with marpa */
     if (symboli != marpaEBNFSymbolArray[i].symboli) {
       goto err;
     }
   }
 
+  /* Delcare all the rules */
+  for (i = 0; i < MARPAEBNF_SIZEOF_ARRAY(marpaEBNFRuleArray); i++) {
+    rulei = marpaWrapperGrammar_newRulei(marpaEBNFp->marpaWrapperGrammarp,
+					 &(marpaEBNFRuleArray[i].option),
+					 marpaEBNFRuleArray[i].lhsSymboli,
+					 marpaEBNFRuleArray[i].rhsSymboll,
+					 marpaEBNFRuleArray[i].rhsSymbolip);
+    /* We take advantage of the fact that symbols always start at 0 with marpa */
+    if (rulei < 0) {
+      goto err;
+    }
+  }
+  
   return 1;
 
  err:
