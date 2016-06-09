@@ -250,7 +250,7 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
 
   { "terminal string",         { 0, 0, 0, 0, 0, 0 }, TERMINAL_STRING, 3, { FIRST_QUOTE_SYMBOL, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL } },
   { "terminal string",         { 0, 0, 0, 0, 0, 0 }, TERMINAL_STRING, 3, { SECOND_QUOTE_SYMBOL, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
-  { "first terminal character many", { 0, 0, 1, -1, 0, 1 },  _FIRST_TERMINAL_CHARACTER_MANY,  1, { FIRST_TERMINAL_CHARACTER } },
+  { "first terminal character many",  { 0, 0, 1, -1, 0, 1 }, _FIRST_TERMINAL_CHARACTER_MANY,  1, { FIRST_TERMINAL_CHARACTER } },
   { "second terminal character many", { 0, 0, 1, -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY, 1, { SECOND_TERMINAL_CHARACTER } },
 };
 
