@@ -42,7 +42,7 @@ typedef enum marpaEBNFSymbolEnum {
   SECOND_TERMINAL_CHARACTER,
   GAP_SEPARATOR,
   SYNTAX,
-  COMMENT_LESS_SYMBOL,
+  COMMENTLESS_SYMBOL,
   INTEGER,
   META_IDENTIFIER,
   META_IDENTIFIER_CHARACTER,
@@ -85,13 +85,24 @@ typedef enum marpaEBNFSymbolEnum {
   _GAP_SEPARATOR_ANY,
   _GAP_FREE_SYMBOL_MANY,
 
-  _COMMENT_LESS_SYMBOL_ALT_1,
-  _COMMENT_LESS_SYMBOL_ALT_1_1,
-  _COMMENT_LESS_SYMBOL_ALT_1_2,
-  _COMMENT_LESS_SYMBOL_ALT_1_1_MARKER,
-  _COMMENT_LESS_SYMBOL_ALT_1_2_MARKER,
+  _COMMENTLESS_SYMBOL_ALT_1,
+  _COMMENTLESS_SYMBOL_ALT_1_1,
+  _COMMENTLESS_SYMBOL_ALT_1_2,
+  _COMMENTLESS_SYMBOL_ALT_1_1_MARKER,
+  _COMMENTLESS_SYMBOL_ALT_1_2_MARKER,
 
-  _DECIMAL_DIGIT_MANY
+  _DECIMAL_DIGIT_MANY,
+
+  _META_IDENTIFIER_CHARACTER_ANY,
+
+  _SPECIAL_SEQUENCE_CHARACTER_ANY,
+
+  _SPECIAL_SEQUENCE_CHARACTER_ALT_1,
+  _SPECIAL_SEQUENCE_CHARACTER_ALT_1_MARKER,
+  _SPECIAL_SEQUENCE_CHARACTER_ALT_2,
+  _SPECIAL_SEQUENCE_CHARACTER_ALT_2_MARKER,
+
+  _COMMENT_SYMBOL_ANY
 } marpaEBNFSymbol_e;
 
 typedef struct marpaEBNFSymbol {
@@ -152,7 +163,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
   {SECOND_TERMINAL_CHARACTER,       "<second terminal character>",       {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {GAP_SEPARATOR,                   "<gap separator>",                   {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {SYNTAX,                          "<syntax>",                          {         0,      1, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },  /* START */
-  {COMMENT_LESS_SYMBOL,             "<comment less symbol>",             {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {COMMENTLESS_SYMBOL,             "<commentless symbol>",             {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {INTEGER,                         "<integer>",                         {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {META_IDENTIFIER,                 "<meta identifier>",                 {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {META_IDENTIFIER_CHARACTER,       "<meta identifier character>",       {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
@@ -236,8 +247,8 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * _SECOND_TERMINAL_CHARACTER_MANY = <second terminal character>+
    *
    */
-  {_FIRST_TERMINAL_CHARACTER_MANY,  "<first terminal character many>",     {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_SECOND_TERMINAL_CHARACTER_MANY, "<second terminal character many>",    {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_FIRST_TERMINAL_CHARACTER_MANY,  "<first terminal character>+",     {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SECOND_TERMINAL_CHARACTER_MANY, "<second terminal character>+",    {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * first terminal character = terminal character - first quote symbol
    *
@@ -275,10 +286,10 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <gap free symbol many> = <gap free symbol>+ separator => <gap separator> proper => 0
    * <syntax> = <gap separator any> <gap free symbol many>
    */
-  {_GAP_SEPARATOR_ANY,              "<gap separator any>",                {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_GAP_FREE_SYMBOL_MANY,           "<gap free symbol many>",             {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_GAP_SEPARATOR_ANY,              "<gap separator>*",               {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_GAP_FREE_SYMBOL_MANY,           "<gap free symbol>+",             {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
-   * comment less symbol = terminal character
+   * commentless symbol = terminal character
    *                       - (letter
    *                         | decimal digit
    *                         | first quote symbol
@@ -294,15 +305,15 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    * is revisited to:
    *
-   * comment less symbol = comment less symbol alt 1
+   * commentless symbol = commentless symbol alt 1
    *                     | meta identifier
    *                     | integer
    *                     | terminal string
    *                     | special sequence
-   * comment less symbol alt 1 = comment less symbol alt 1.1 _COMMENT_LESS_SYMBOL_ALT_1_1_MARKER
-   *                             comment less symbol alt 1.2 _COMMENT_LESS_SYMBOL_ALT_1_2_MARKER
-   * comment less symbol alt 1.1 = terminal character
-   * comment less symbol alt 1.2 = letter
+   * commentless symbol alt 1 = commentless symbol alt 1.1 _COMMENTLESS_SYMBOL_ALT_1_1_MARKER
+   *                             commentless symbol alt 1.2 _COMMENTLESS_SYMBOL_ALT_1_2_MARKER
+   * commentless symbol alt 1.1 = terminal character
+   * commentless symbol alt 1.2 = letter
    *                             | decimal digit
    *                             | first quote symbol
    *                             | second quote symbol
@@ -312,11 +323,11 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *                             | other character)
    *
    */
-  {_COMMENT_LESS_SYMBOL_ALT_1,          "<comment less symbol alt 1>",           {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_COMMENT_LESS_SYMBOL_ALT_1_1,        "<comment less symbol alt 1.1>",         {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
-  {_COMMENT_LESS_SYMBOL_ALT_1_2,        "<comment less symbol alt 1.2>",         {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
-  {_COMMENT_LESS_SYMBOL_ALT_1_1_MARKER, "<comment less symbol alt 1.1 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_COMMENT_LESS_SYMBOL_ALT_1_2_MARKER, "<comment less symbol alt 1.2 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_COMMENTLESS_SYMBOL_ALT_1,          "<commentless symbol alt 1>",           {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_COMMENTLESS_SYMBOL_ALT_1_1,        "<commentless symbol alt 1.1>",         {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
+  {_COMMENTLESS_SYMBOL_ALT_1_2,        "<commentless symbol alt 1.2>",         {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
+  {_COMMENTLESS_SYMBOL_ALT_1_1_MARKER, "<commentless symbol alt 1.1 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_COMMENTLESS_SYMBOL_ALT_1_2_MARKER, "<commentless symbol alt 1.2 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * integer = decimal digit, {decimal digit}
    *
@@ -325,7 +336,62 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <integer> = <decimal digit many>
    * <decimal digit many> = <decimal digit>+
    */
-  {_DECIMAL_DIGIT_MANY,             "<decimal digit many>",                      {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_DECIMAL_DIGIT_MANY,             "<decimal digit>+",                          {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+   * meta identifier = letter, {meta identifier character}
+   *
+   * is revisited to:
+   *
+   * <meta identifier> = <letter> <meta identifier character any>
+   * <meta identifier character any> = <meta identifier character>*
+   */
+  {_META_IDENTIFIER_CHARACTER_ANY,   "<meta identifier character>*",             {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+   * special sequence = special sequence symbol, {special sequence character}, special sequence symbol
+   *
+   * is revisited to:
+   *
+   * <special sequence character any> = <special sequence character>*
+   * <special sequence> = <special sequence symbol> <special sequence character any> <special sequence symbol>
+   */
+  {_SPECIAL_SEQUENCE_CHARACTER_ANY,   "<special sequence character>*",           {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+   * special sequence character = terminal character - special sequence symbol
+   *
+   * is revisited to:
+   *
+   * special sequence character = special sequence character alt 1 _SPECIAL_SEQUENCE_CHARACTER_ALT_1_MARKER
+   * special sequence character = special sequence character alt 2 _SPECIAL_SEQUENCE_CHARACTER_ALT_2_MARKER
+   * special sequence character alt 1 = terminal character
+   * special sequence character alt 2 = special sequence symbol
+   */
+  {_SPECIAL_SEQUENCE_CHARACTER_ALT_1,        "<special sequence character alt 1>",        {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
+  {_SPECIAL_SEQUENCE_CHARACTER_ALT_1_MARKER, "<special sequence character alt 1 marker>", {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SPECIAL_SEQUENCE_CHARACTER_ALT_2,        "<special sequence character alt 2>",        {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } },
+  {_SPECIAL_SEQUENCE_CHARACTER_ALT_2_MARKER, "<special sequence character alt 2 marker>", {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+   * bracketed textual comment = start comment symbol, {comment symbol}, end comment symbol
+   *
+   * is revisited to:
+   *
+   * <comment symbol any> = <comment symbol>*
+   * <bracketed textual comment> = <start comment symbol> <comment symbol any> <end comment symbol>
+   */
+  {_COMMENT_SYMBOL_ANY,   "<comment symbol>*",           {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+   * syntax = {bracketed textual comment}, commentless symbol, {bracketed textual comment}, {commentless symbol, {bracketed textual comment}}
+   *
+   * is revisited to:
+   *
+   * <bracketed textual comment any> = <bracketed textual comment>*
+   * <syntax unit> =  <commentless symbol> <bracketed textual comment any>
+   * <syntax unit many> =  <syntax unit>+
+   * <syntax> = <bracketed textual comment any> <syntax unit many>
+   */
+  /*
+  {_BRACKETED_TEXTUAL_COMMENT_ANY,   "<bracketed textual comment>*",           {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SYNTAX_UNIT,   "<bracketed textual comment>*",           {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  */
 };
 
 static marpaEBNFRule_t marpaEBNFRuleArray[] = {
@@ -383,25 +449,47 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { "<gap free symbol many>",        { 0, 0, 1, GAP_SEPARATOR, 0, 1 }, _GAP_FREE_SYMBOL_MANY,            1, { GAP_SEPARATOR } },
   { "<syntax>",                      { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _GAP_SEPARATOR_ANY, _GAP_FREE_SYMBOL_MANY } },
 
-  { "<comment less symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENT_LESS_SYMBOL,              1, { _COMMENT_LESS_SYMBOL_ALT_1 } },
-  { "<comment less symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENT_LESS_SYMBOL,              1, { META_IDENTIFIER } },
-  { "<comment less symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENT_LESS_SYMBOL,              1, { INTEGER } },
-  { "<comment less symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENT_LESS_SYMBOL,              1, { TERMINAL_STRING } },
-  { "<comment less symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENT_LESS_SYMBOL,              1, { SPECIAL_SEQUENCE } },
-  { "<comment less symbol alt 1>",   { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1,       2, { _COMMENT_LESS_SYMBOL_ALT_1_1, _COMMENT_LESS_SYMBOL_ALT_1_1_MARKER } },
-  { "<comment less symbol alt 1>",   { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1,       2, { _COMMENT_LESS_SYMBOL_ALT_1_2, _COMMENT_LESS_SYMBOL_ALT_1_2_MARKER } },
-  { "<comment less symbol alt 1.1>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_1,     1, { TERMINAL_CHARACTER } },
-  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { LETTER } },
-  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { DECIMAL_DIGIT } },
-  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { FIRST_QUOTE_SYMBOL } },
-  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { SECOND_QUOTE_SYMBOL } },
-  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { START_COMMENT_SYMBOL } },
-  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { END_COMMENT_SYMBOL } },
-  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { SPECIAL_SEQUENCE_SYMBOL } },
-  { "<comment less symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENT_LESS_SYMBOL_ALT_1_2,     1, { OTHER_CHARACTER } },
+  { "<commentless symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,              1, { _COMMENTLESS_SYMBOL_ALT_1 } },
+  { "<commentless symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,              1, { META_IDENTIFIER } },
+  { "<commentless symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,              1, { INTEGER } },
+  { "<commentless symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,              1, { TERMINAL_STRING } },
+  { "<commentless symbol>",         { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,              1, { SPECIAL_SEQUENCE } },
+  { "<commentless symbol alt 1>",   { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,       2, { _COMMENTLESS_SYMBOL_ALT_1_1, _COMMENTLESS_SYMBOL_ALT_1_1_MARKER } },
+  { "<commentless symbol alt 1>",   { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,       2, { _COMMENTLESS_SYMBOL_ALT_1_2, _COMMENTLESS_SYMBOL_ALT_1_2_MARKER } },
+  { "<commentless symbol alt 1.1>", { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_1,     1, { TERMINAL_CHARACTER } },
+  { "<commentless symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { LETTER } },
+  { "<commentless symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { DECIMAL_DIGIT } },
+  { "<commentless symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { FIRST_QUOTE_SYMBOL } },
+  { "<commentless symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { SECOND_QUOTE_SYMBOL } },
+  { "<commentless symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { START_COMMENT_SYMBOL } },
+  { "<commentless symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { END_COMMENT_SYMBOL } },
+  { "<commentless symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { SPECIAL_SEQUENCE_SYMBOL } },
+  { "<commentless symbol alt 1.2>", { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { OTHER_CHARACTER } },
 
   { "<decimal digit many>",          { 0, 0, 1,            -1, 0, 1 }, _DECIMAL_DIGIT_MANY,              1, { DECIMAL_DIGIT } },
   { "<integer>",                     { 0, 0, 0,            -1, 0, 0 }, INTEGER,                          1, { _DECIMAL_DIGIT_MANY } },
+
+  { "<meta identifier character any>", { 0, 0, 1,          -1, 0, 0 }, _META_IDENTIFIER_CHARACTER_ANY,   1, { META_IDENTIFIER_CHARACTER } },
+  { "<meta identifier>",             { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER,                  2, { LETTER, _META_IDENTIFIER_CHARACTER_ANY } },
+
+  { "<meta identifier character>",   { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER_CHARACTER,        1, { LETTER } },
+  { "<meta identifier character>",   { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER_CHARACTER,        1, { DECIMAL_DIGIT } },
+
+  { "<special sequence character any>", { 0, 0, 1,         -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ANY,  1, { SPECIAL_SEQUENCE_CHARACTER } },
+  { "<special sequence>",            { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE,                 3, { SPECIAL_SEQUENCE_SYMBOL, _SPECIAL_SEQUENCE_CHARACTER_ANY, SPECIAL_SEQUENCE_SYMBOL } },
+
+  { "<special sequence character>",       { 0, 0, 0,       -1, 0, 0 }, SPECIAL_SEQUENCE_CHARACTER,         2, { _SPECIAL_SEQUENCE_CHARACTER_ALT_1, _SPECIAL_SEQUENCE_CHARACTER_ALT_1_MARKER } },
+  { "<special sequence character>",       { 0, 0, 0,       -1, 0, 0 }, SPECIAL_SEQUENCE_CHARACTER,         2, { _SPECIAL_SEQUENCE_CHARACTER_ALT_2, _SPECIAL_SEQUENCE_CHARACTER_ALT_2_MARKER } },
+  { "<special sequence character alt 1>", { 0, 0, 0,       -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ALT_1,  1, { TERMINAL_CHARACTER } },
+  { "<special sequence character alt 2>", { 0, 0, 0,       -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ALT_2,  1, { SPECIAL_SEQUENCE_SYMBOL } },
+
+  { "<comment symbol>",              { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { BRACKETED_TEXTUAL_COMMENT } },
+  { "<comment symbol>",              { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { OTHER_CHARACTER } },
+  { "<comment symbol>",              { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { COMMENTLESS_SYMBOL } },
+
+  { "<comment symbol any>",          { 0, 0, 1,            -1, 0, 0 }, _COMMENT_SYMBOL_ANY,              1, { COMMENT_SYMBOL } },
+  { "<bracketed textual comment>",   { 0, 0, 0,            -1, 0, 0 }, BRACKETED_TEXTUAL_COMMENT,        3, { START_COMMENT_SYMBOL, _COMMENT_SYMBOL_ANY, END_COMMENT_SYMBOL } },
+
 };
 
 /* Internally, EBNF is nothing else but an instance of marpaWrapperGrammar_t along */
