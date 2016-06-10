@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "config.h"
+#include "genericstack.h"
 #include "marpaWrapper.h"
 #include "marpaEBNF.h"
 
@@ -570,7 +571,7 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { "<optional sequence>",           { 0, 0, 0,            -1, 0, 0 }, OPTIONAL_SEQUENCE,                3, { START_OPTION_SYMBOL, DEFINITIONS_LIST, END_OPTION_SYMBOL } },
   { "<repeated sequence>",           { 0, 0, 0,            -1, 0, 0 }, REPEATED_SEQUENCE,                3, { START_REPEAT_SYMBOL, DEFINITIONS_LIST, END_REPEAT_SYMBOL } },
   { "<grouped sequence>",            { 0, 0, 0,            -1, 0, 0 }, GROUPED_SEQUENCE,                 3, { START_GROUP_SYMBOL, DEFINITIONS_LIST, END_GROUP_SYMBOL } },
-  { "<empty sequence>",              { 0, 0, 0,            -1, 0, 0 }, EMPTY_SEQUENCE,                   0, { } },
+  { "<empty sequence>",              { 0, 0, 0,            -1, 0, 0 }, EMPTY_SEQUENCE,                   0, { -1 } }, /* Some compilers like cl does not like an empty [] */
 };
 
 /* Internally, EBNF is nothing else but an instance of marpaWrapperGrammar_t along */
@@ -641,7 +642,13 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   size_t                         i;
   size_t                         nSymboll;
   int                           *symbolArrayp;
+  int                            symboli;
   marpaEBNFSymbol_t              marpaEBNFSymbol;
+  char                           c;
+  int                            nAlternativei;
+  GENERICSTACK_DECL(inputStack);
+
+  GENERICSTACK_NEW(inputStack);
 
   if ((marpaEBNFp == NULL) || (grammars == NULL)) {
     errno = EINVAL;
@@ -662,7 +669,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
     goto err;
   }
   /* Loop until it is consumed or an error */
-  while (1) {
+  while (pos <= maxpos) {
     /* Events */
     if (marpaWrapperGrammar_eventb(marpaEBNFp->marpaWrapperGrammarp, &eventl, &eventp, 0) == 0) {
       goto err;
@@ -689,29 +696,93 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
       goto err;
     }
     if (nSymboll > 0) {
-      for (i = 0; i < nSymboll; i++) {
-	if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-	  GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Expected terminal: %s", _marpaEBNF_symbolDescription(marpaEBNFp, symbolArrayp[i]));
-	}
-      }
+      short okb;
+      int lengthi;
 
-      marpaEBNFSymbol = marpaEBNFSymbolArray[symbolArrayp[i]];
-      /* Process only terminals that we know about */
-      switch (symbolArrayp[i]) {
-      case LETTER:
-	break;
-      default:
-	break;
+      nAlternativei = 0;
+      for (i = 0; i < nSymboll; i++) {
+        symboli = symbolArrayp[i];
+	if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+	  GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Expected terminal: %s", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
+	}
+
+        marpaEBNFSymbol = marpaEBNFSymbolArray[symboli];
+        okb = 0;
+        lengthi = 1;
+        c = grammars[pos];
+        /* Process only terminals that we know about */
+        switch (symboli) {
+        case LETTER:
+          if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) { okb = 1; }
+          break;
+        case DECIMAL_DIGIT:
+          if (c >= '0' && c <= '9') { okb = 1; }
+          break;
+        case CONCATENATE_SYMBOL:
+          if (c == ',') { okb = 1; }
+          break;
+        case DEFINING_SYMBOL:
+          if (c == ',') { okb = 1; }
+          break;
+        case DEFINITION_SEPARATOR_SYMBOL:
+          if (c == '|' || c == '/' || c == '!') { okb = 1; }
+          break;
+        case END_COMMENT_SYMBOL:
+          if (c == '*' && pos < maxpos && grammars[pos+1] == ')') { okb = 1; }
+          break;
+        case END_GROUP_SYMBOL:
+          if (c == ')') { okb = 1; }
+          break;
+        case END_OPTION_SYMBOL:
+          if (c == ']' || (pos < maxpos && c == '/' && grammars[pos+1] == ')')) { okb = 1; lengthi = 2; }
+          break;
+        case END_REPEAT_SYMBOL:
+          if (c == '}' || (pos < maxpos && c == ':' && grammars[pos+1] == ')')) { okb = 1; lengthi = 2;}
+          break;
+        case EXCEPT_SYMBOL:
+          if (c == '-') { okb = 1; }
+          break;
+        case FIRST_QUOTE_SYMBOL:
+          if (c == '\'') { okb = 1; }
+          break;
+        case REPETITION_SYMBOL:
+          if (c == '*') { okb = 1; }
+          break;
+        case SECOND_QUOTE_SYMBOL:
+          if (c == '"') { okb = 1; }
+          break;
+        case SPECIAL_SEQUENCE_SYMBOL:
+          if (c == '?') { okb = 1; }
+          break;
+        case START_COMMENT_SYMBOL:
+          if (c == '(' && pos < maxpos && grammars[pos+1] == '*') { okb = 1; lengthi = 2; }
+          break;
+        default:
+          break;
+        }
+        if (okb) {
+          GENERICSTACK_PUSH_CHAR(inputStack, c);
+          if (marpaWrapperRecognizer_alternativeb(marpaWrapperRecognizerp, symboli, GENERICSTACK_SIZE(inputStack), 1) == 0) {
+            goto err;
+          }
+          ++nAlternativei;
+        }
+      }
+      if (nAlternativei > 0) {
+        marpaWrapperRecognizer_completeb(marpaWrapperRecognizerp);
+      } else {
+        errno = EINVAL;
+        goto err;
       }
     }
-    /* Resume */
-    
+
+    /* Resume */   
     break;
 
-  };
-  return 1;
-  
+  }
+
   marpaWrapperRecognizer_freev(marpaWrapperRecognizerp);
+  return 1; 
 
  err:
   if (marpaWrapperRecognizerp != NULL) {

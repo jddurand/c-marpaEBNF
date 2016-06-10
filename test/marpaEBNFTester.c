@@ -25,4 +25,6 @@ int main(int argc, char **argv) {
   }
 
   GENERICLOGGER_FREE(genericLoggerp);
+
+  return(rci);
 }
