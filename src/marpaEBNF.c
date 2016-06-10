@@ -137,9 +137,9 @@ typedef struct marpaEBNFRule {
 
 /* List of all symbols of the EBNF grammar as per ISO/IEC 14977:1996 */
 static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
-  /* ------------------------------------------------------------------------------------------
-    symboli                          markerb, exceptionb, descriptions    { terminalb, startb,                          eventSeti }
-    -------------------------------------------------------------------------------------------
+  /* -----------------------------------------------------------------------------------------------------------------------------------
+    symboli                   markerb, exceptionb, descriptions                { terminalb, startb,                          eventSeti }
+    ------------------------------------------------------------------------------------------------------------------------------------
   */
   /*
    *                                TERMINAL CHARACTERS
@@ -630,8 +630,10 @@ marpaEBNF_t *marpaEBNF_newp(marpaEBNFOption_t *marpaEBNFOptionp)
 short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 /****************************************************************************/
 {
-  size_t                         linel   = 1;
-  size_t                         columnl = 1;
+  size_t                         linel   = 1;   /* Current line number */
+  size_t                         columnl = 1;   /* Current column number */
+  size_t                         pos = 0;       /* Current position in buffer */
+  size_t                         maxpos;
   marpaWrapperRecognizer_t      *marpaWrapperRecognizerp;
   marpaWrapperRecognizerOption_t marpaWrapperRecognizerOption;
   size_t                         eventl;
@@ -639,11 +641,17 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   size_t                         i;
   size_t                         nSymboll;
   int                           *symbolArrayp;
+  marpaEBNFSymbol_t              marpaEBNFSymbol;
 
   if ((marpaEBNFp == NULL) || (grammars == NULL)) {
     errno = EINVAL;
     goto err;
   }
+
+  /* An ISO EBNF grammar is always expressed in the 7-bit ASCII range; that is entirely */
+  /* covered by the basic C default character set. We just have to take care to always  */
+  /* compare with a char, not an integer value.                                         */
+  maxpos = strlen(grammars) - 1;
 
   /* Parse external grammar using internal grammar, supposed to fit entirely in memory */
   marpaWrapperRecognizerOption.genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
@@ -686,10 +694,20 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	  GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Expected terminal: %s", _marpaEBNF_symbolDescription(marpaEBNFp, symbolArrayp[i]));
 	}
       }
+
+      marpaEBNFSymbol = marpaEBNFSymbolArray[symbolArrayp[i]];
+      /* Process only terminals that we know about */
+      switch (symbolArrayp[i]) {
+      case LETTER:
+	break;
+      default:
+	break;
+      }
     }
     /* Resume */
     
     break;
+
   };
   return 1;
   
