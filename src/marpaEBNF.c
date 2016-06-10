@@ -110,7 +110,9 @@ typedef enum marpaEBNFSymbolEnum {
   _SYNTAX_01,
 
   _SYNTAX_RULE_MANY,
-  _SYNTAX_02
+  _SYNTAX_02,
+
+  _DEFINITIONS_SEQUENCE,
 } marpaEBNFSymbol_e;
 
 typedef struct marpaEBNFSymbol {
@@ -418,7 +420,27 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    */
   {_SYNTAX_RULE_MANY,              0, 0, "<syntax rule>+",               { 0, 0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {_SYNTAX_02,                     0, 0, "<syntax 02>",                  { 0, 0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /*
+    Marpa does not like counted nullables at all. EMPTY_SEQUENCE is a (and the only) nullable and its parents are:
+
+    definitions list = single definition, {definition separator symbol, single definition}
+    single definition = syntactic term, {concatenate symbol, syntactic term}
+    syntactic term = syntactic factor [except symbol, syntactic exception]
+    syntactic factor = [integer, repetition symbol], syntactic primary
+    syntactic primary = empty sequence
+
+    This is revisited to:
+
+    definitions list = _DEFINITIONS_SEQUENCE
+    definitions list = empty sequence
+    _DEFINITIONS_SEQUENCE = single definition, {definition separator symbol, single definition}
+    single definition = syntactic term, {concatenate symbol, syntactic term}
+    syntactic term = syntactic factor [except symbol, syntactic exception]
+    syntactic factor = [integer, repetition symbol], syntactic primary
+  */
+  {_DEFINITIONS_SEQUENCE,          0, 0, "<definitions sequence>",       { 0, 0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
 };
+
 
 static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { "<terminal character>",          { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { LETTER } },
@@ -528,7 +550,9 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
 
   { "<syntax rule>",                 { 0, 0, 0,            -1, 0, 0 }, SYNTAX_RULE,                      4, { META_IDENTIFIER, DEFINING_SYMBOL, DEFINITIONS_LIST, TERMINATOR_SYMBOL } },
 
-  { "<definitions list>",  { 0, 0, 1, DEFINITION_SEPARATOR_SYMBOL, 0, 1 }, DEFINITIONS_LIST,             1, { SINGLE_DEFINITION } },
+  { "<definitions sequence>",      { 0, 0, 1, DEFINITION_SEPARATOR_SYMBOL, 0, 1 }, _DEFINITIONS_SEQUENCE, 1, { SINGLE_DEFINITION } },
+  { "<definitions list>",            { 0, 0, 0,            -1, 0, 0 }, DEFINITIONS_LIST,                 1, { _DEFINITIONS_SEQUENCE } },
+  { "<definitions list>",            { 0, 0, 0,            -1, 0, 0 }, DEFINITIONS_LIST,                 1, { EMPTY_SEQUENCE } },
   { "<single definition>", { 0, 0, 1, CONCATENATE_SYMBOL,          0, 1 }, SINGLE_DEFINITION,            1, { SYNTACTIC_TERM } },
   { "<syntactic term>",              { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_TERM,                   1, { SYNTACTIC_FACTOR } },
   { "<syntactic term>",              { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_TERM,                   3, { SYNTACTIC_FACTOR, EXCEPT_SYMBOL, SYNTACTIC_EXCEPTION } },
@@ -540,7 +564,9 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { "<syntactic primary>",           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { META_IDENTIFIER } },
   { "<syntactic primary>",           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { TERMINAL_STRING } },
   { "<syntactic primary>",           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { SPECIAL_SEQUENCE } },
+  /*
   { "<syntactic primary>",           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { EMPTY_SEQUENCE } },
+  */
   { "<optional sequence>",           { 0, 0, 0,            -1, 0, 0 }, OPTIONAL_SEQUENCE,                3, { START_OPTION_SYMBOL, DEFINITIONS_LIST, END_OPTION_SYMBOL } },
   { "<repeated sequence>",           { 0, 0, 0,            -1, 0, 0 }, REPEATED_SEQUENCE,                3, { START_REPEAT_SYMBOL, DEFINITIONS_LIST, END_REPEAT_SYMBOL } },
   { "<grouped sequence>",            { 0, 0, 0,            -1, 0, 0 }, GROUPED_SEQUENCE,                 3, { START_GROUP_SYMBOL, DEFINITIONS_LIST, END_GROUP_SYMBOL } },
