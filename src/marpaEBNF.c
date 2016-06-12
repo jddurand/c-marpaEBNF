@@ -762,6 +762,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   marpaWrapperValueOption_t      marpaWrapperValueOption;
   short                          doCompleteb = 0;
   short                          rci;
+  short                          discardb;
   GENERICSTACK_DECL(inputStack);
 
   if ((marpaEBNFp == NULL) || (grammars == NULL)) {
@@ -812,10 +813,6 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 
     /* When p is == maxp, we only take care of the events */
     
-    // marpaWrapperRecognizer_progressLogb(marpaWrapperRecognizerp, -1, 1, GENERICLOGGER_LOGLEVEL_INFO, marpaEBNFp, _marpaEBNF_symbolDescription);
-    // GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "%s", p);
-    // fgetc(stdin);
-
     /* Lookup expected terminals */
     if (marpaWrapperRecognizer_expectedb(marpaWrapperRecognizerp, &nSymboll, &symbolArrayp) == 0) {
       goto err;
@@ -1074,6 +1071,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 
     lengthl = 0;
     doCompleteb = 0;
+    discardb = 0;
 
     if (alternativeokl > 0) {
       /* Say we will have to call for lexeme completion */
@@ -1116,10 +1114,28 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	  goto err;
 	}
       }
-    } else {
-      /* ---------------------------------------- */
-      /* No true terminal: look to fake terminals */
-      /* ---------------------------------------- */
+    }
+
+    if (doCompleteb == 0) {
+      /* ------------------------------------------- */
+      /* No true terminal: look discarded characters */
+      /* ------------------------------------------- */
+      if (p < maxp) {
+	c = *p;
+	if ((c == '\t') || (c == '\n') || (c == '\f') || (c == '\r') || (c == '\v') || (c == ' ')) {
+	  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+	    GENERICLOGGER_INFO(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Discarded a space character");
+	  }
+	  discardb = 1;
+	  lengthl = 1;
+	}
+      }
+    }
+
+    if ((doCompleteb == 0) && (discardb == 0)) {
+      /* -------------------------------------------------------------- */
+      /* No true terminal and nothing discarded: look to fake terminals */
+      /* -------------------------------------------------------------- */
       for (i = 0; i < nSymboll; i++) {
 	okb = 0;
         symboli = symbolArrayp[i];
@@ -1172,14 +1188,13 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
       if (marpaWrapperRecognizer_completeb(marpaWrapperRecognizerp) == 0) {
 	goto err;
       }
-    } else {
-      /* Formally this is an error to never call completion except eventually */
-      /* at the very end.                                                     */
+    } else if (discardb == 0) {
+      /* This is an error if we are not at the end of the grammar */
       if (p < maxp) {
 	if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-	  GENERICLOGGER_ERROR(marpaEBNFp->marpaEBNFOption.genericLoggerp, "No terminal detected");
-	  goto err;
+	  GENERICLOGGER_ERROR(marpaEBNFp->marpaEBNFOption.genericLoggerp, "No terminal nor discard detected");
 	}
+	goto err;
       }
     }
 
@@ -1193,9 +1208,6 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
       break;
     }
   }
-
-  /* Log current state before asking for the value */
-  marpaWrapperRecognizer_progressLogb(marpaWrapperRecognizerp, -1, 1, GENERICLOGGER_LOGLEVEL_ERROR, marpaEBNFp, _marpaEBNF_symbolDescription);
 
   /* Ask for the value, we REQUIRE it to be unambigous. Sine we have no rank, let's specify it. */
   marpaWrapperValueOption.genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
@@ -1214,6 +1226,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 
  err:
   rci = 0;
+
  done:
   if (inputStack != NULL) {
     for (i = 0; i < GENERICSTACK_SIZE(inputStack); i++) {
@@ -1232,8 +1245,8 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   }
   if (marpaWrapperRecognizerp != NULL) {
     if (rci == 0) {
-      /* Log current state before freeing the recognizer */
-      marpaWrapperRecognizer_progressLogb(marpaWrapperRecognizerp, -1, 1, GENERICLOGGER_LOGLEVEL_ERROR, marpaEBNFp, _marpaEBNF_symbolDescription);
+      /* Log current state of the recognizer */
+      marpaWrapperRecognizer_progressLogb(marpaWrapperRecognizerp, -1, -1, GENERICLOGGER_LOGLEVEL_ERROR, marpaEBNFp, _marpaEBNF_symbolDescription);
     }
     marpaWrapperRecognizer_freev(marpaWrapperRecognizerp);
   }

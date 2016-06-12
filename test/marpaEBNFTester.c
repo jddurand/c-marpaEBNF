@@ -229,9 +229,7 @@ static char *ebnfs =
 "(* see 4.13 *) grouped sequence" "\n"
 "= start group symbol, definitions list," "\n"
 "end group symbol;" "\n"
-"(* see 4.21 *) empty sequence" "\n"
-"= ;" "\n"
-;
+  ;
 
 int main(int argc, char **argv) {
   int rci = 0;
