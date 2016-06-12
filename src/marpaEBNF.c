@@ -1121,13 +1121,23 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
       /* No true terminal: look discarded characters */
       /* ------------------------------------------- */
       if (p < maxp) {
-	c = *p;
-	if ((c == '\t') || (c == '\n') || (c == '\f') || (c == '\r') || (c == '\v') || (c == ' ')) {
+	switch (*p) {
+	case '\n':
+	  ++linel;
+	  columnl = 1;
+	  /* No break intentionnaly */
+	case '\t':
+	case '\f':
+	case '\r':
+	case '\v':
+	case ' ':
 	  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
 	    GENERICLOGGER_INFO(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Discarded a space character");
 	  }
 	  discardb = 1;
 	  lengthl = 1;
+	default:
+	  break;
 	}
       }
     }
