@@ -413,8 +413,10 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    * is revisited to:
    *
-   * <meta identifier> = <letter> <meta identifier character any>
-   * <meta identifier character any> = <meta identifier character>*
+   * <meta identifier> = <letter>
+   * <meta identifier> = <meta identifier> <meta identifier character>
+   *
+   * in order to avoid the sequence {meta identifier character} that would introduce too many ambiguities
    */
   /* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   {symboli                   markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
@@ -675,7 +677,9 @@ typedef struct marpaEBNFAlternative {
   int lengthl;
 } marpaEBNFAlternative_t;
 
-static inline int _marpaEBNFAlternativeCmpi(const void *p1, const void *p2);
+static inline int   _marpaEBNFAlternativeCmpi(const void *p1, const void *p2);
+static inline short _marpaEBNFvalueRuleCallback(void *userDatavp, int rulei, int arg0i, int argni, int resulti);
+static inline short _marpaEBNFvalueSymbolCallback(void *userDatavp, int symboli, int argi, int resulti);
 
 /****************************************************************************/
 marpaEBNF_t *marpaEBNF_newp(marpaEBNFOption_t *marpaEBNFOptionp)
@@ -1132,7 +1136,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	case '\v':
 	case ' ':
 	  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-	    GENERICLOGGER_INFO(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Discarded a space character");
+	    GENERICLOGGER_TRACE(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Discarded a space character");
 	  }
 	  discardb = 1;
 	  lengthl = 1;
@@ -1223,14 +1227,27 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   marpaWrapperValueOption.genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
   marpaWrapperValueOption.highRankOnlyb  = 0;
   marpaWrapperValueOption.orderByRankb   = 0;
-  marpaWrapperValueOption.ambiguousb     = 0;
+  marpaWrapperValueOption.ambiguousb     = 1;
   marpaWrapperValueOption.nullb          = 0;
   marpaWrapperValuep = marpaWrapperValue_newp(marpaWrapperRecognizerp, &marpaWrapperValueOption);
-
-  if (marpaWrapperValue_valueb(marpaWrapperValuep, NULL, NULL, NULL, NULL) == 0) {
+  if (marpaWrapperValuep == NULL) {
     goto err;
   }
-  
+
+  rci = 0;
+  while (marpaWrapperValue_valueb(marpaWrapperValuep,
+				  marpaEBNFp,
+				  _marpaEBNFvalueRuleCallback,
+				  _marpaEBNFvalueSymbolCallback,
+				  NULL) > 0) {
+    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+      GENERICLOGGER_INFO(marpaEBNFp->marpaEBNFOption.genericLoggerp, "---------- Got a value");
+    }
+    if (++rci >= 2) {
+      exit(1);
+    }
+  }
+
   rci = 1;
   goto done;
 
@@ -1342,4 +1359,49 @@ static inline int _marpaEBNFAlternativeCmpi(const void *p1, const void *p2)
   marpaEBNFAlternative_t *q = (marpaEBNFAlternative_t *) p2;
 
   return (p->lengthl < q->lengthl) ? 1 : ((p->lengthl == q->lengthl) ? 0 : -1);
+}
+
+/****************************************************************************/
+static inline short _marpaEBNFvalueRuleCallback(void *userDatavp, int rulei, int arg0i, int argni, int resulti)
+/****************************************************************************/
+{
+  marpaEBNF_t       *marpaEBNFp = (marpaEBNF_t *) userDatavp;
+  marpaEBNFRule_t   *rulep      = &(marpaEBNFp->ruleArrayp[rulei]);
+  marpaEBNFSymbol_t *lhsp       = &(marpaEBNFp->symbolArrayp[rulep->lhsSymboli]);
+
+  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+    if (rulep->rhsSymboll > 0) {
+      int i;
+      if (rulep->rhsSymboll == 1) {
+	GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s ;", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions);
+      } else {
+	GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions);
+	for (i = 1; i < rulep->rhsSymboll; i++) {
+	  if (i == rulep->rhsSymboll - 1) {
+	    GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "\t%s ;", marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[i]].descriptions);
+	  } else {
+	    GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "\t%s", marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[i]].descriptions);
+	  }
+	}
+      }
+    } else {
+      GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s ;", rulei, lhsp->descriptions);
+    }
+  }
+
+  return 1;
+}
+
+/****************************************************************************/
+static inline short _marpaEBNFvalueSymbolCallback(void *userDatavp, int symboli, int argi, int resulti)
+/****************************************************************************/
+{
+  marpaEBNF_t       *marpaEBNFp = (marpaEBNF_t *) userDatavp;
+  marpaEBNFSymbol_t *symbolp    = &(marpaEBNFp->symbolArrayp[symboli]);
+
+  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+    GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "  Symbol No %2d value callback: %s", symboli, symbolp->descriptions);
+  }
+
+  return 1;
 }
