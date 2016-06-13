@@ -413,15 +413,14 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    * is revisited to:
    *
-   * <meta identifier> = <letter>
-   * <meta identifier> = <meta identifier> <meta identifier character>
+   * <meta identifier>              = <letter> _META_IDENTIFIER_CHARACTER_ANY
+   * _META_IDENTIFIER_CHARACTER_ANY = <meta identifier character>*
    *
-   * in order to avoid the sequence {meta identifier character} that would introduce too many ambiguities
    */
   /* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   {symboli                   markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
   ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_META_IDENTIFIER_CHARACTER_ANY, 0,       0,        0,         0,          0, "<meta identifier character *>",      {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_META_IDENTIFIER_CHARACTER_ANY, 0,      0,        0,         0,          0, "<meta identifier trailing>",          {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * special sequence = special sequence symbol, {special sequence character}, special sequence symbol
    *
@@ -550,21 +549,21 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2,         1, { FIRST_QUOTE_SYMBOL } },
   { { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2,         1, { SECOND_QUOTE_SYMBOL } },
 
-  { { 0, 0, 0,         -1, 0, 0 }, _TERMINAL_STRING_NULLED,          0, { -1 } }, /* Some compilers like cl does not like an empty [] */
-  { { 0, 0, 0,         -1, 0, 0 }, TERMINAL_STRING,                  4, { FIRST_QUOTE_SYMBOL, _TERMINAL_STRING_NULLED, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL } },
-  { { 0, 0, 0,         -1, 0, 0 }, TERMINAL_STRING,                  4, { SECOND_QUOTE_SYMBOL, _TERMINAL_STRING_NULLED, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
-  { { 0, 0, 1,         -1, 0, 1 }, _FIRST_TERMINAL_CHARACTER_MANY,   1, { FIRST_TERMINAL_CHARACTER } },
-  { { 0, 0, 1,         -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY,  1, { SECOND_TERMINAL_CHARACTER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _TERMINAL_STRING_NULLED,          0, { -1 } }, /* Some compilers like cl does not like an empty [] */
+  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  4, { FIRST_QUOTE_SYMBOL, _TERMINAL_STRING_NULLED, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  4, { SECOND_QUOTE_SYMBOL, _TERMINAL_STRING_NULLED, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
+  { { 0, 0, 1,            -1, 0, 1 }, _FIRST_TERMINAL_CHARACTER_MANY,   1, { FIRST_TERMINAL_CHARACTER } },
+  { { 0, 0, 1,            -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY,  1, { SECOND_TERMINAL_CHARACTER } },
 
-  { { 0, 0, 0,         -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         2, { _FIRST_TERMINAL_CHARACTER_ALT_1, _FIRST_TERMINAL_CHARACTER_ALT_1_MARKER } },
-  { { 0, 0, 0,         -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         2, { _FIRST_TERMINAL_CHARACTER_ALT_2, _FIRST_TERMINAL_CHARACTER_ALT_2_MARKER } },
-  { { 0, 0, 0,         -1, 0, 0 }, _FIRST_TERMINAL_CHARACTER_ALT_1,  1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,         -1, 0, 0 }, _FIRST_TERMINAL_CHARACTER_ALT_2,  1, { FIRST_QUOTE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         2, { _FIRST_TERMINAL_CHARACTER_ALT_1, _FIRST_TERMINAL_CHARACTER_ALT_1_MARKER } },
+  { { 0, 0, 0,            -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         2, { _FIRST_TERMINAL_CHARACTER_ALT_2, _FIRST_TERMINAL_CHARACTER_ALT_2_MARKER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _FIRST_TERMINAL_CHARACTER_ALT_1,  1, { TERMINAL_CHARACTER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _FIRST_TERMINAL_CHARACTER_ALT_2,  1, { FIRST_QUOTE_SYMBOL } },
 
-  { { 0, 0, 0,        -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,         2, { _SECOND_TERMINAL_CHARACTER_ALT_1, _SECOND_TERMINAL_CHARACTER_ALT_1_MARKER } },
-  { { 0, 0, 0,        -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,         2, { _SECOND_TERMINAL_CHARACTER_ALT_2, _SECOND_TERMINAL_CHARACTER_ALT_2_MARKER } },
-  { { 0, 0, 0,        -1, 0, 0 }, _SECOND_TERMINAL_CHARACTER_ALT_1,  1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,        -1, 0, 0 }, _SECOND_TERMINAL_CHARACTER_ALT_2,  1, { SECOND_QUOTE_SYMBOL } },
+  { { 0, 0, 0,           -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,         2, { _SECOND_TERMINAL_CHARACTER_ALT_1, _SECOND_TERMINAL_CHARACTER_ALT_1_MARKER } },
+  { { 0, 0, 0,           -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,         2, { _SECOND_TERMINAL_CHARACTER_ALT_2, _SECOND_TERMINAL_CHARACTER_ALT_2_MARKER } },
+  { { 0, 0, 0,           -1, 0, 0 }, _SECOND_TERMINAL_CHARACTER_ALT_1,  1, { TERMINAL_CHARACTER } },
+  { { 0, 0, 0,           -1, 0, 0 }, _SECOND_TERMINAL_CHARACTER_ALT_2,  1, { SECOND_QUOTE_SYMBOL } },
 
   { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { SPACE_CHARACTER } },
   { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { HORIZONTAL_TABULATION_CHARACTER } },
@@ -576,40 +575,40 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 1, GAP_SEPARATOR, 0, 1 }, _GAP_FREE_SYMBOL_MANY,            1, { GAP_SEPARATOR } },
   { { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _GAP_SEPARATOR_ANY, _GAP_FREE_SYMBOL_MANY } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,              1, { _COMMENTLESS_SYMBOL_ALT_1 } },
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,              1, { META_IDENTIFIER } },
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,              1, { INTEGER } },
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,              1, { TERMINAL_STRING } },
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,              1, { SPECIAL_SEQUENCE } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,       2, { _COMMENTLESS_SYMBOL_ALT_1_1, _COMMENTLESS_SYMBOL_ALT_1_1_MARKER } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,       2, { _COMMENTLESS_SYMBOL_ALT_1_2, _COMMENTLESS_SYMBOL_ALT_1_2_MARKER } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_1,     1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { LETTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { DECIMAL_DIGIT } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { FIRST_QUOTE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { SECOND_QUOTE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { START_COMMENT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { END_COMMENT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { SPECIAL_SEQUENCE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,     1, { OTHER_CHARACTER } },
+  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { _COMMENTLESS_SYMBOL_ALT_1 } },
+  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { META_IDENTIFIER } },
+  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { INTEGER } },
+  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { TERMINAL_STRING } },
+  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { SPECIAL_SEQUENCE } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        2, { _COMMENTLESS_SYMBOL_ALT_1_1, _COMMENTLESS_SYMBOL_ALT_1_1_MARKER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        2, { _COMMENTLESS_SYMBOL_ALT_1_2, _COMMENTLESS_SYMBOL_ALT_1_2_MARKER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_1,      1, { TERMINAL_CHARACTER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { LETTER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { DECIMAL_DIGIT } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { FIRST_QUOTE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { SECOND_QUOTE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { START_COMMENT_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { END_COMMENT_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { SPECIAL_SEQUENCE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { OTHER_CHARACTER } },
 
   { { 0, 0, 1,            -1, 0, 1 }, _DECIMAL_DIGIT_MANY,              1, { DECIMAL_DIGIT } },
   { { 0, 0, 0,            -1, 0, 0 }, INTEGER,                          1, { _DECIMAL_DIGIT_MANY } },
 
-  { { 0, 0, 1,          -1, 0, 0 }, _META_IDENTIFIER_CHARACTER_ANY,   1, { META_IDENTIFIER_CHARACTER } },
+  { { 0, 0, 1,            -1, 0, 0 }, _META_IDENTIFIER_CHARACTER_ANY,   1, { META_IDENTIFIER_CHARACTER } },
   { { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER,                  2, { LETTER, _META_IDENTIFIER_CHARACTER_ANY } },
 
   { { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER_CHARACTER,        1, { LETTER } },
   { { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER_CHARACTER,        1, { DECIMAL_DIGIT } },
 
-  { { 0, 0, 1,         -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ANY,  1, { SPECIAL_SEQUENCE_CHARACTER } },
-  { { 0, 0, 0,         -1, 0, 0 }, _SPECIAL_SEQUENCE_NULLED,          0, { -1 } }, /* Some compilers like cl does not like an empty [] */
+  { { 0, 0, 1,            -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ANY,  1, { SPECIAL_SEQUENCE_CHARACTER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _SPECIAL_SEQUENCE_NULLED,         0, { -1 } }, /* Some compilers like cl does not like an empty [] */
   { { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE,                 4, { SPECIAL_SEQUENCE_SYMBOL, _SPECIAL_SEQUENCE_NULLED, _SPECIAL_SEQUENCE_CHARACTER_ANY, SPECIAL_SEQUENCE_SYMBOL } },
 
-  { { 0, 0, 0,       -1, 0, 0 }, SPECIAL_SEQUENCE_CHARACTER,         2, { _SPECIAL_SEQUENCE_CHARACTER_ALT_1, _SPECIAL_SEQUENCE_CHARACTER_ALT_1_MARKER } },
-  { { 0, 0, 0,       -1, 0, 0 }, SPECIAL_SEQUENCE_CHARACTER,         2, { _SPECIAL_SEQUENCE_CHARACTER_ALT_2, _SPECIAL_SEQUENCE_CHARACTER_ALT_2_MARKER } },
-  { { 0, 0, 0,       -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ALT_1,  1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,       -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ALT_2,  1, { SPECIAL_SEQUENCE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE_CHARACTER,       2, { _SPECIAL_SEQUENCE_CHARACTER_ALT_1, _SPECIAL_SEQUENCE_CHARACTER_ALT_1_MARKER } },
+  { { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE_CHARACTER,       2, { _SPECIAL_SEQUENCE_CHARACTER_ALT_2, _SPECIAL_SEQUENCE_CHARACTER_ALT_2_MARKER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ALT_1,1, { TERMINAL_CHARACTER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ALT_2,1, { SPECIAL_SEQUENCE_SYMBOL } },
 
   { { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { BRACKETED_TEXTUAL_COMMENT } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { OTHER_CHARACTER } },
@@ -618,7 +617,7 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 1,            -1, 0, 0 }, _COMMENT_SYMBOL_ANY,              1, { COMMENT_SYMBOL } },
   { { 0, 0, 0,            -1, 0, 0 }, BRACKETED_TEXTUAL_COMMENT,        3, { START_COMMENT_SYMBOL, _COMMENT_SYMBOL_ANY, END_COMMENT_SYMBOL } },
 
-  { { 0, 0, 1,          -1, 0, 0 }, _BRACKETED_TEXTUAL_COMMENT_ANY,   1, { BRACKETED_TEXTUAL_COMMENT } },
+  { { 0, 0, 1,            -1, 0, 0 }, _BRACKETED_TEXTUAL_COMMENT_ANY,   1, { BRACKETED_TEXTUAL_COMMENT } },
   { { 0, 0, 0,            -1, 0, 0 }, _SYNTAX_UNIT,                     2, { COMMENTLESS_SYMBOL, _BRACKETED_TEXTUAL_COMMENT_ANY } },
   { { 0, 0, 1,            -1, 0, 1 }, _SYNTAX_UNIT_MANY,                1, { _SYNTAX_UNIT } },
   { { 0, 0, 0,            -1, 0, 0 }, _SYNTAX_01,                       2, { _BRACKETED_TEXTUAL_COMMENT_ANY, _SYNTAX_UNIT_MANY } },
@@ -663,6 +662,8 @@ struct marpaEBNF {
   marpaEBNFRule_t       *ruleArrayp;           /* Copy of marpaEBNFRuleArray: it has lexer dependent volatile data */
   int                    terminalStringContexti;    /* EBNF is not ambiguous if we take care of some symbols */
   int                    specialSequenceContexti;   /* that are not allowed.                                 */
+  genericStack_t        *inputStackp;
+  genericStack_t        *outputStackp;
 };
 
 static inline short _marpaEBNF_internalGrammarb(marpaEBNF_t *marpaEBNFp);
@@ -680,6 +681,7 @@ typedef struct marpaEBNFAlternative {
 static inline int   _marpaEBNFAlternativeCmpi(const void *p1, const void *p2);
 static inline short _marpaEBNFvalueRuleCallback(void *userDatavp, int rulei, int arg0i, int argni, int resulti);
 static inline short _marpaEBNFvalueSymbolCallback(void *userDatavp, int symboli, int argi, int resulti);
+static inline void  _genericStackFree(void *p);
 
 /****************************************************************************/
 marpaEBNF_t *marpaEBNF_newp(marpaEBNFOption_t *marpaEBNFOptionp)
@@ -703,7 +705,19 @@ marpaEBNF_t *marpaEBNF_newp(marpaEBNFOption_t *marpaEBNFOptionp)
   marpaEBNFp->marpaEBNFOption      = *marpaEBNFOptionp;
   marpaEBNFp->grammarp             = NULL;
   marpaEBNFp->symbolArrayp         = (marpaEBNFSymbol_t *) malloc(marpaEBNFSymbolArraySizel);
+  if (marpaEBNFp->symbolArrayp == NULL) {
+    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+      GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
+    }
+    goto err;
+  }
   marpaEBNFp->ruleArrayp           = (marpaEBNFRule_t *) malloc(marpaEBNFRuleArraySizel);
+  if (marpaEBNFp->ruleArrayp == NULL) {
+    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+      GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
+    }
+    goto err;
+  }
 
   marpaWrapperGrammarOption.genericLoggerp    = marpaEBNFp->marpaEBNFOption.genericLoggerp;
   marpaWrapperGrammarOption.warningIsErrorb   = 0;
@@ -758,7 +772,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   char                          *maxp;
   size_t                         grammarLengthl;
   short                          okb;
-  unsigned long                  lengthl, tmplengthl;
+  int                            lengthl, tmplengthl;
   marpaWrapperGrammarEventType_t eventTypee;
   char                          *tokens;
   size_t                         alternativel = 0;
@@ -767,7 +781,8 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   short                          doCompleteb = 0;
   short                          rci;
   short                          discardb;
-  GENERICSTACK_DECL(inputStack);
+  GENERICSTACK_DECL(inputStackp);
+  GENERICSTACK_DECL(outputStackp);
 
   if ((marpaEBNFp == NULL) || (grammars == NULL)) {
     errno = EINVAL;
@@ -779,9 +794,20 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   /* compare with a char, not an integer value.                                         */
   grammarLengthl = strlen(grammars);
 
-  /* We know that our input stack will never exceed the number of characters in grammars */
-  GENERICSTACK_NEW(inputStack);
-  if (GENERICSTACK_ERROR(inputStack)) {
+  /* Create input stack */
+  GENERICSTACK_NEW(inputStackp);
+  if (GENERICSTACK_ERROR(inputStackp)) {
+    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+      GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_ERROR error, %s", strerror(errno));
+    }
+    goto err;
+  }
+  /* Marpa does not like the indice 0 with the input stack, it means an unvalued symbol */
+  GENERICSTACK_PUSH_ANY(inputStackp, NULL, NULL, NULL);
+  if (GENERICSTACK_ERROR(inputStackp)) {
+    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+      GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_ANY error, %s", strerror(errno));
+    }
     goto err;
   }
 
@@ -825,12 +851,18 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
     if (alternativep == NULL) {
       alternativep = malloc(nSymboll * sizeof(marpaEBNFAlternative_t));
       if (alternativep == NULL) {
+        if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+          GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
+        }
 	goto err;
       }
       alternativel = nSymboll;
     } else if (alternativel < nSymboll) {
       marpaEBNFAlternative_t *tmp = (marpaEBNFAlternative_t *) realloc(alternativep, nSymboll * sizeof(marpaEBNFAlternative_t));
       if (tmp == NULL) {
+        if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+          GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "realloc error, %s", strerror(errno));
+        }
 	goto err;
       }
       alternativep = tmp;
@@ -1102,19 +1134,25 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	/* Our input stack is a copy of what was matched */
 	tokens = malloc(lengthl + 1);
 	if (tokens == NULL) {
+          if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+            GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
+          }
 	  goto err;
 	}
 	strncpy(tokens, p, lengthl);
 	tokens[lengthl] = '\0';
-	GENERICSTACK_PUSH_PTR(inputStack, tokens);
-	if (GENERICSTACK_ERROR(inputStack)) {
-	  goto err;
-	}
+	GENERICSTACK_PUSH_ANY(inputStackp, tokens, NULL, _genericStackFree);
+        if (GENERICSTACK_ERROR(inputStackp)) {
+          if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+            GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_ANY error, %s", strerror(errno));
+          }
+          goto err;
+        }
 	if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
 	  GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Accepted terminal %s of length %ld: \"%s\"", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), (unsigned long) lengthl, tokens);
 	}
 	/* Length is a number of earlemes from grammar point of view - we maintain internally the real pointer position */
-	if (marpaWrapperRecognizer_alternativeb(marpaWrapperRecognizerp, symboli, GENERICSTACK_SIZE(inputStack), 1) == 0) {
+	if (marpaWrapperRecognizer_alternativeb(marpaWrapperRecognizerp, symboli, GENERICSTACK_SIZE(inputStackp) - 1, 1) == 0) {
 	  goto err;
 	}
       }
@@ -1180,15 +1218,18 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	  marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[symboli]);
 	  marpaEBNFSymbolp->matchedb = 1;
 	  /* Our input stack is the current pointer: a fake terminal has not real value */
-          GENERICSTACK_PUSH_PTR(inputStack, NULL);
-	  if (GENERICSTACK_ERROR(inputStack)) {
-	    goto err;
-	  }
+          GENERICSTACK_PUSH_ANY(inputStackp, NULL, NULL, NULL);
+          if (GENERICSTACK_ERROR(inputStackp)) {
+            if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+              GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_ANY error, %s", strerror(errno));
+            }
+            goto err;
+          }
 	  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
 	    GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Accepted fake terminal: %s", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
 	  }
 	  /* Length of a fake terminal is 1 and it does not advance the pointer */
-          if (marpaWrapperRecognizer_alternativeb(marpaWrapperRecognizerp, symboli, GENERICSTACK_SIZE(inputStack), 1) == 0) {
+          if (marpaWrapperRecognizer_alternativeb(marpaWrapperRecognizerp, symboli, GENERICSTACK_SIZE(inputStackp) - 1, 1) == 0) {
             goto err;
           }
 	  /* Remember we have to call for lexeme completion */
@@ -1235,6 +1276,19 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   }
 
   rci = 0;
+  /* Remember input stack */
+  marpaEBNFp->inputStackp = inputStackp;
+
+  /* Create and remember output stack */
+  GENERICSTACK_NEW(outputStackp);
+  if (GENERICSTACK_ERROR(outputStackp)) {
+    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+      GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_ERROR error, %s", strerror(errno));
+    }
+    goto err;
+  }
+  marpaEBNFp->outputStackp = outputStackp;
+
   while (marpaWrapperValue_valueb(marpaWrapperValuep,
 				  marpaEBNFp,
 				  _marpaEBNFvalueRuleCallback,
@@ -1255,14 +1309,11 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   rci = 0;
 
  done:
-  if (inputStack != NULL) {
-    for (i = 0; i < GENERICSTACK_SIZE(inputStack); i++) {
-      tokens = GENERICSTACK_GET_PTR(inputStack, i);
-      if (tokens != NULL) {
-	free(tokens);
-      }
-    }
-    GENERICSTACK_FREE(inputStack);
+  if (inputStackp != NULL) {
+    GENERICSTACK_FREE(inputStackp);
+  }
+  if (outputStackp != NULL) {
+    GENERICSTACK_FREE(outputStackp);
   }
   if (alternativep != NULL) {
     free(alternativep);
@@ -1368,10 +1419,10 @@ static inline short _marpaEBNFvalueRuleCallback(void *userDatavp, int rulei, int
   marpaEBNF_t       *marpaEBNFp = (marpaEBNF_t *) userDatavp;
   marpaEBNFRule_t   *rulep      = &(marpaEBNFp->ruleArrayp[rulei]);
   marpaEBNFSymbol_t *lhsp       = &(marpaEBNFp->symbolArrayp[rulep->lhsSymboli]);
+  size_t             i;
 
   if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
     if (rulep->rhsSymboll > 0) {
-      int i;
       if (rulep->rhsSymboll == 1) {
 	GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s ;", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions);
       } else {
@@ -1396,12 +1447,53 @@ static inline short _marpaEBNFvalueRuleCallback(void *userDatavp, int rulei, int
 static inline short _marpaEBNFvalueSymbolCallback(void *userDatavp, int symboli, int argi, int resulti)
 /****************************************************************************/
 {
-  marpaEBNF_t       *marpaEBNFp = (marpaEBNF_t *) userDatavp;
-  marpaEBNFSymbol_t *symbolp    = &(marpaEBNFp->symbolArrayp[symboli]);
+  marpaEBNF_t       *marpaEBNFp  = (marpaEBNF_t *) userDatavp;
+  marpaEBNFSymbol_t *symbolp     = &(marpaEBNFp->symbolArrayp[symboli]);
+  genericStack_t    *inputStackp  = marpaEBNFp->inputStackp;
+  genericStack_t    *outputStackp = marpaEBNFp->outputStackp;
+  char              *inputs;
+  char              *outputs;
+
+  inputs = GENERICSTACK_GET_PTR(inputStackp, argi);
 
   if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-    GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "  Symbol No %2d value callback: %s", symboli, symbolp->descriptions);
+    if (inputs != NULL) {
+      GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "  Symbol No %2d value callback: %s, input: \"%s\"", symboli, symbolp->descriptions, inputs);
+    } else {
+      GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "  Symbol No %2d value callback: %s, input: NULL", symboli, symbolp->descriptions);
+    }
+  }
+
+  if (inputs == NULL) {
+    /* This is legal and happen only with our fake terminals */
+    GENERICSTACK_SET_ANY(outputStackp, NULL, NULL, NULL, argi);
+  } else {
+    outputs = strdup(inputs);
+    if (outputs == NULL) {
+      if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+        GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "strdup error, %s", strerror(errno));
+      }
+      goto err;
+    }
+    GENERICSTACK_SET_ANY(outputStackp, outputs, NULL, _genericStackFree, argi);
+  }
+
+  if (GENERICSTACK_ERROR(outputStackp)) {
+    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+      GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_SET_ANY error, %s", strerror(errno));
+    }
+    goto err;
   }
 
   return 1;
+
+ err:
+  return 0;
+}
+
+/****************************************************************************/
+static inline void  _genericStackFree(void *p)
+/****************************************************************************/
+{
+  free(p);
 }
