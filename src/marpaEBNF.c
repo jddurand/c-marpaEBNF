@@ -98,8 +98,7 @@ typedef enum marpaEBNFSymbolEnum {
 
   _DECIMAL_DIGIT_MANY,
 
-  _META_IDENTIFIER_CHARACTER_ANY,
-  _META_IDENTIFIER_CHARACTER_ANY_MARKER,
+  _META_IDENTIFIER_CHARACTER_MANY,
 
   _SPECIAL_SEQUENCE_CHARACTER_ANY,
 
@@ -414,15 +413,15 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    * is revisited to:
    *
-   * <meta identifier>              = <letter> _META_IDENTIFIER_CHARACTER_ANY _META_IDENTIFIER_CHARACTER_ANY_MARKER
-   * _META_IDENTIFIER_CHARACTER_ANY = <meta identifier character>*
+   * <meta identifier>               = <letter> _META_IDENTIFIER_CHARACTER_MANY rank => 1
+   * <meta identifier>               = <letter>
+   * _META_IDENTIFIER_CHARACTER_MANY = <meta identifier character>+
    *
    */
   /* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   {symboli                   markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
   ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_META_IDENTIFIER_CHARACTER_ANY, 0,      0,        0,         0,          0, "<meta identifier trailing>",          {         0,      0, -1 /* All Events */                } },
-  {_META_IDENTIFIER_CHARACTER_ANY_MARKER, 1, _META_IDENTIFIER_CHARACTER_ANY,  0, 0, 0, "<meta identifier trailing marker>",  {  1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_META_IDENTIFIER_CHARACTER_MANY,0,      0,        0,         0,          0, "<meta identifier trailing>",          {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * special sequence = special sequence symbol, {special sequence character}, special sequence symbol
    *
@@ -597,8 +596,8 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 1,            -1, 0, 1 }, _DECIMAL_DIGIT_MANY,              1, { DECIMAL_DIGIT } },
   { { 0, 0, 0,            -1, 0, 0 }, INTEGER,                          1, { _DECIMAL_DIGIT_MANY } },
 
-  { { 0, 0, 1,            -1, 0, 0 }, _META_IDENTIFIER_CHARACTER_ANY,   1, { META_IDENTIFIER_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER,                  3, { LETTER, _META_IDENTIFIER_CHARACTER_ANY, _META_IDENTIFIER_CHARACTER_ANY_MARKER } },
+  { { 0, 0, 1,            -1, 0, 1 }, _META_IDENTIFIER_CHARACTER_MANY,  1, { META_IDENTIFIER_CHARACTER } },
+  { { 1, 0, 0,            -1, 0, 0 }, META_IDENTIFIER,                  2, { LETTER, _META_IDENTIFIER_CHARACTER_MANY } },
 
   { { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER_CHARACTER,        1, { LETTER } },
   { { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER_CHARACTER,        1, { DECIMAL_DIGIT } },
