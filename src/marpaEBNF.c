@@ -9,6 +9,7 @@
 #include "marpaEBNF.h"
 
 #define MARPAEBNF_LENGTH_ARRAY(x) (sizeof(x)/sizeof((x)[0]))
+#define MARKED_SYMBOL_EVENTS (MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION|MARPAWRAPPERGRAMMAR_EVENTTYPE_NULLED)
 
 /* Convenience enum, also used to make sure that symbol id is the enum -; */
 typedef enum marpaEBNFSymbolEnum {
@@ -78,13 +79,13 @@ typedef enum marpaEBNFSymbolEnum {
   _SECOND_TERMINAL_CHARACTER_MANY,
 
   _FIRST_TERMINAL_CHARACTER_ALT_1,
-  _FIRST_TERMINAL_CHARACTER_ALT_1_MARKER,
   _FIRST_TERMINAL_CHARACTER_ALT_2,
+  _FIRST_TERMINAL_CHARACTER_ALT_1_MARKER,
   _FIRST_TERMINAL_CHARACTER_ALT_2_MARKER,
 
   _SECOND_TERMINAL_CHARACTER_ALT_1,
-  _SECOND_TERMINAL_CHARACTER_ALT_1_MARKER,
   _SECOND_TERMINAL_CHARACTER_ALT_2,
+  _SECOND_TERMINAL_CHARACTER_ALT_1_MARKER,
   _SECOND_TERMINAL_CHARACTER_ALT_2_MARKER,
 
   _GAP_SEPARATOR_ANY,
@@ -98,13 +99,14 @@ typedef enum marpaEBNFSymbolEnum {
 
   _DECIMAL_DIGIT_MANY,
 
-  _META_IDENTIFIER_CHARACTER_MANY,
+  _META_IDENTIFIER_CHARACTER_ANY,
+  _META_IDENTIFIER_CHARACTER_ANY_MARKER,
 
   _SPECIAL_SEQUENCE_CHARACTER_ANY,
 
   _SPECIAL_SEQUENCE_CHARACTER_ALT_1,
-  _SPECIAL_SEQUENCE_CHARACTER_ALT_1_MARKER,
   _SPECIAL_SEQUENCE_CHARACTER_ALT_2,
+  _SPECIAL_SEQUENCE_CHARACTER_ALT_1_MARKER,
   _SPECIAL_SEQUENCE_CHARACTER_ALT_2_MARKER,
 
   _COMMENT_SYMBOL_ANY,
@@ -122,18 +124,14 @@ typedef enum marpaEBNFSymbolEnum {
 
 typedef struct marpaEBNFSymbol {
   marpaEBNFSymbol_e                 symboli;
-  short                             markerb;
-  int                               markedi;
+  short                             markerb;    /* An internal fake terminal ? */
+  int                               markedi;    /* The alternative that is ok when it is a fake terminal */
   short                             matchedb;   /* Initialized to 0 at each lex lookup */
   int                               eventSeti;  /* Initialized to 0 at each lex lookup */
-  short                             exceptionb;
+  short                             exceptioni; /* The alternative that is not ok when it is a fake terminal */
   char                             *descriptions;
   marpaWrapperGrammarSymbolOption_t option;
 } marpaEBNFSymbol_t;
-
-#define MARPAEBNF_SYMBOL_IS_MARKER(marpaEBNFSymbolp) ((marpaEBNFSymbolp)->markerb != 0)
-#define MARPAEBNF_SYMBOL_IS_MARKER_OK(marpaEBNFSymbolp) (MARPAEBNF_SYMBOL_IS_MARKER(marpaEBNFSymbolp) && ((marpaEBNFSymbolp)->exceptionb == 0))
-#define MARPAEBNF_SYMBOL_IS_MARKER_KO(marpaEBNFSymbolp) (MARPAEBNF_SYMBOL_IS_MARKER(marpaEBNFSymbolp) && ((marpaEBNFSymbolp)->exceptionb != 0))
 
 typedef struct marpaEBNFRule {
   marpaWrapperGrammarRuleOption_t   option;
@@ -145,7 +143,7 @@ typedef struct marpaEBNFRule {
 /* List of all symbols of the EBNF grammar as per ISO/IEC 14977:1996 */
 static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
   /* -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                    markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
+  {symboli                    markerb, markedi, matchedb, eventSeti, exceptioni, descriptions                          { terminalb, startb,                          eventSeti } }
   -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {LETTER,                          0,       0,        0,         0,          0, "<letter>",                          {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {DECIMAL_DIGIT,                   0,       0,        0,         0,          0, "<decimal digit>",                   {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
@@ -174,7 +172,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
   {FORM_FEED,                       0,       0,        0,         0,          0, "<form feed>",                       {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
 
   /* -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                    markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
+  {symboli                    markerb, markedi, matchedb, eventSeti, exceptioni, descriptions                          { terminalb, startb,                          eventSeti } }
   -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {TERMINAL_CHARACTER,              0,       0,        0,         0,          0, "<terminal character>",              {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {GAP_FREE_SYMBOL,                 0,       0,        0,         0,          0, "<gap free symbol>",                 {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
@@ -209,21 +207,29 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
     * Given a rule
     *   X = A - B
     *
+    * then we want to match A if B is not matched. Per def there is a conflict only if B a subset (or the entire set) of A.
+    *
     * it is rewriten as:
     *   X = A MARKER_A    # With a completion or nulled event on A
     *   X = B MARKER_B    # With a completion or nulled event on B
     *
+    * We use the term "expected" and not "predicted" for a marker, because a marker a fake terminal, not a non-terminal.
+    *
     * During lexing phase:
-    * IF (MARKER_A was predicted) THEN
-    *   IF (there is a nulled event on A) THEN
-    *     we insert MARKER_A
-    *   ELSE IF (there is a completion event on A) THEN
-    *     IF (there is a prediction on A) THEN
-    *       IF (A was not matched) THEN
+    * IF (MARKER_A was expected) THEN
+    *   IF ((MARKER_A is associated to an exception AND there is no nulled nor completion event on B)
+    *       OR
+    *       (MARKER_A is not assocated to an exception)) THEN
+    *     IF (there is a nulled event on A) THEN
+    *       we insert MARKER_A
+    *     ELSE IF (there is a completion event on A) THEN
+    *       IF (there is a prediction on A) THEN
+    *         IF (A was not matched) THEN               # This is handling the case where A would be a terminal
+    *           we insert MARKER_A
+    *         ENDIF
+    *       ELSE
     *         we insert MARKER_A
     *       ENDIF
-    *     ELSE
-    *       we insert MARKER_A
     *     ENDIF
     *   ENDIF
     * ENDIF
@@ -242,7 +248,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * to detect special sequence context. Plus a completion symbol on special sequence.
    */
   /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                   markerb,                   markedi, matchedb, eventSeti, exceptionb, descriptions                         { terminalb, startb,                          eventSeti } }
+  {symboli                   markerb,                   markedi, matchedb, eventSeti, exceptioni, descriptions                         { terminalb, startb,                          eventSeti } }
   -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_SPECIAL_SEQUENCE_NULLED,       0,                         0,        0,         0,          0, "<terminal string nulled>",          {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NULLED } },
   /*
@@ -257,7 +263,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * to detect terminal string context. Plus a completion symbol on terminal string.
    */
   /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                   markerb,                   markedi, matchedb, eventSeti, exceptionb, descriptions                         { terminalb, startb,                          eventSeti } }
+  {symboli                   markerb,                   markedi, matchedb, eventSeti, exceptioni, descriptions                         { terminalb, startb,                          eventSeti } }
   -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_TERMINAL_STRING_NULLED,        0,                         0,        0,         0,          0, "<terminal string nulled>",          {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NULLED } },
   /*
@@ -280,13 +286,13 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *                         | second quote symbol
    */
   /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                   markerb,                   markedi, matchedb, eventSeti, exceptionb, descriptions                         { terminalb, startb,                          eventSeti } }
+  {symboli                   markerb,                   markedi, matchedb, eventSeti, exceptioni, descriptions                         { terminalb, startb,                          eventSeti } }
   -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_GAP_FREE_SYMBOL_ALT_1,          0,                        0,        0,         0,          0, "<gap free symbol alt 1>",           {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_GAP_FREE_SYMBOL_ALT_1_1,        0,                        0,        0,         0,          0, "<gap free symbol alt 1.1>",         {         0,      0, -1 /* All Events */                } },
-  {_GAP_FREE_SYMBOL_ALT_1_2,        0,                        0,        0,         0,          0, "<gap free symbol alt 1.2>",         {         0,      0, -1 /* All Events */                } },
-  {_GAP_FREE_SYMBOL_ALT_1_1_MARKER, 1, _GAP_FREE_SYMBOL_ALT_1_1,        0,         0,          0, "<gap free symbol alt 1.1 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_GAP_FREE_SYMBOL_ALT_1_2_MARKER, 1, _GAP_FREE_SYMBOL_ALT_1_2,        0,         0,          1, "<gap free symbol alt 1.2 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_GAP_FREE_SYMBOL_ALT_1_1,        0,                        0,        0,         0,          0, "<gap free symbol alt 1.1>",         {         0,      0, MARKED_SYMBOL_EVENTS               } },
+  {_GAP_FREE_SYMBOL_ALT_1_2,        0,                        0,        0,         0,          0, "<gap free symbol alt 1.2>",         {         0,      0, MARKED_SYMBOL_EVENTS               } },
+  {_GAP_FREE_SYMBOL_ALT_1_1_MARKER, 1, _GAP_FREE_SYMBOL_ALT_1_1,        0,         0, _GAP_FREE_SYMBOL_ALT_1_2, "<gap free symbol alt 1.1 marker>",{1,   0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_GAP_FREE_SYMBOL_ALT_1_2_MARKER, 1,                       -1,        0,         0,         -1, "<gap free symbol alt 1.2 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * terminal string = first quote symbol, first terminal character, {first terminal character}, first quote symbol
    *                 | second quote symbol, second terminal character, {second terminal character}, second quote symbol
@@ -301,7 +307,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    */
   /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                   markerb,                   markedi, matchedb, eventSeti, exceptionb, descriptions                         { terminalb, startb,                          eventSeti } }
+  {symboli                   markerb,                   markedi, matchedb, eventSeti, exceptioni, descriptions                         { terminalb, startb,                          eventSeti } }
   -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_FIRST_TERMINAL_CHARACTER_MANY,  0,                        0,        0,         0,          0, "<first terminal character +>",      {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {_SECOND_TERMINAL_CHARACTER_MANY, 0,                        0,        0,         0,          0, "<second terminal character +>",     {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
@@ -316,12 +322,12 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * first terminal character alt 2 = first quote symbol
    */
   /* -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                           markerb,                         markedi, matchedb, eventSeti, exceptionb, descriptions                               { terminalb, startb,                          eventSeti } }
+  {symboli                           markerb,                         markedi, matchedb, eventSeti, exceptioni, descriptions                               { terminalb, startb,                          eventSeti } }
   -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_FIRST_TERMINAL_CHARACTER_ALT_1,        0,                               0,        0,         0,          0, "<first terminal character alt 1>",        {         0,      0, -1 /* All Events */                } },
-  {_FIRST_TERMINAL_CHARACTER_ALT_1_MARKER, 1, _FIRST_TERMINAL_CHARACTER_ALT_1,        0,         0,          0, "<first terminal character alt 1 marker>", {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_FIRST_TERMINAL_CHARACTER_ALT_2,        0,                               0,        0,         0,          0, "<first terminal character alt 2>",        {         0,      0, -1 /* All Events */ } },
-  {_FIRST_TERMINAL_CHARACTER_ALT_2_MARKER, 1, _FIRST_TERMINAL_CHARACTER_ALT_2,        0,         0,          1, "<first terminal character alt 2 marker>", {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_FIRST_TERMINAL_CHARACTER_ALT_1,        0,                               0,        0,         0,          0, "<first terminal character alt 1>",        {         0,      0, MARKED_SYMBOL_EVENTS               } },
+  {_FIRST_TERMINAL_CHARACTER_ALT_2,        0,                               0,        0,         0,          0, "<first terminal character alt 2>",        {         0,      0, MARKED_SYMBOL_EVENTS               } },
+  {_FIRST_TERMINAL_CHARACTER_ALT_1_MARKER, 1, _FIRST_TERMINAL_CHARACTER_ALT_1,        0,         0, _FIRST_TERMINAL_CHARACTER_ALT_2, "<first terminal character alt 1 marker>", {1,0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_FIRST_TERMINAL_CHARACTER_ALT_2_MARKER, 1,                              -1,        0,         0,        -1, "<first terminal character alt 2 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * second terminal character = terminal character - second quote symbol
    *
@@ -333,12 +339,12 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * second terminal character alt 2 = second quote symbol
    */
   /* --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                           markerb,                           markedi, matchedb, eventSeti, exceptionb, descriptions                                { terminalb, startb,                          eventSeti } }
+  {symboli                           markerb,                           markedi, matchedb, eventSeti, exceptioni, descriptions                                { terminalb, startb,                          eventSeti } }
   ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_SECOND_TERMINAL_CHARACTER_ALT_1,        0,                                0,        0,         0,          0, "<second terminal character alt 1>",        {         0,      0, -1 /* All Events */                } },
-  {_SECOND_TERMINAL_CHARACTER_ALT_1_MARKER, 1, _SECOND_TERMINAL_CHARACTER_ALT_1,        0,         0,          0, "<second terminal character alt 1 marker>", {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_SECOND_TERMINAL_CHARACTER_ALT_2,        0,                                0,        0,         0,          0, "<second terminal character alt 2>",        {         0,      0, -1 /* All Events */                } },
-  {_SECOND_TERMINAL_CHARACTER_ALT_2_MARKER, 1, _SECOND_TERMINAL_CHARACTER_ALT_2,        0,         0,          1, "<second terminal character alt 2 marker>", {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SECOND_TERMINAL_CHARACTER_ALT_1,        0,                                0,        0,         0,          0, "<second terminal character alt 1>",        {         0,      0, MARKED_SYMBOL_EVENTS               } },
+  {_SECOND_TERMINAL_CHARACTER_ALT_2,        0,                                0,        0,         0,          0, "<second terminal character alt 2>",        {         0,      0, MARKED_SYMBOL_EVENTS               } },
+  {_SECOND_TERMINAL_CHARACTER_ALT_1_MARKER, 1, _SECOND_TERMINAL_CHARACTER_ALT_1,        0,         0, _SECOND_TERMINAL_CHARACTER_ALT_2, "<second terminal character alt 1 marker>", {1, 0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SECOND_TERMINAL_CHARACTER_ALT_2_MARKER, 1,                               -1,        0,         0,                               -1, "<second terminal character alt 2 marker>", {1, 0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * syntax = {gap separator}, gap free symbol, {gap separator}, {gap free symbol, {gap separator}}
    *
@@ -349,7 +355,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <syntax> = <gap separator any> <gap free symbol many>
    */
   /* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                   markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
+  {symboli                   markerb, markedi, matchedb, eventSeti, exceptioni, descriptions                          { terminalb, startb,                          eventSeti } }
   ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_GAP_SEPARATOR_ANY,              0,       0,       0,         0,          0, "<gap separator *>",                  {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {_GAP_FREE_SYMBOL_MANY,           0,       0,       0,         0,          0, "<gap free symbol +>",                {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
@@ -389,13 +395,13 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    */
   /* ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                       markerb,                     markedi, matchedb, eventSeti, exceptionb, descriptions                            { terminalb, startb,                          eventSeti } }
+  {symboli                       markerb,                     markedi, matchedb, eventSeti, exceptioni, descriptions                            { terminalb, startb,                          eventSeti } }
   --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_COMMENTLESS_SYMBOL_ALT_1,          0,                           0,        0,         0,          0, "<commentless symbol alt 1>",           {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_COMMENTLESS_SYMBOL_ALT_1_1,        0,                           0,        0,         0,          0, "<commentless symbol alt 1.1>",         {         0,      0, -1 /* All Events */                } },
-  {_COMMENTLESS_SYMBOL_ALT_1_2,        0,                           0,        0,         0,          0, "<commentless symbol alt 1.2>",         {         0,      0, -1 /* All Events */                } },
-  {_COMMENTLESS_SYMBOL_ALT_1_1_MARKER, 1, _COMMENTLESS_SYMBOL_ALT_1_1,        0,         0,          0, "<commentless symbol alt 1.1 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_COMMENTLESS_SYMBOL_ALT_1_2_MARKER, 1, _COMMENTLESS_SYMBOL_ALT_1_2,        0,         0,          1, "<commentless symbol alt 1.2 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_COMMENTLESS_SYMBOL_ALT_1_1,        0,                           0,        0,         0,          0, "<commentless symbol alt 1.1>",         {         0,      0, MARKED_SYMBOL_EVENTS               } },
+  {_COMMENTLESS_SYMBOL_ALT_1_2,        0,                           0,        0,         0,          0, "<commentless symbol alt 1.2>",         {         0,      0, MARKED_SYMBOL_EVENTS               } },
+  {_COMMENTLESS_SYMBOL_ALT_1_1_MARKER, 1, _COMMENTLESS_SYMBOL_ALT_1_1,        0,         0, _COMMENTLESS_SYMBOL_ALT_1_2, "<commentless symbol alt 1.1 marker>",{1,0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_COMMENTLESS_SYMBOL_ALT_1_2_MARKER, 1,                          -1,        0,         0,         -1, "<commentless symbol alt 1.2 marker>",  {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * integer = decimal digit, {decimal digit}
    *
@@ -405,7 +411,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <decimal digit many> = <decimal digit>+
    */
   /* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                   markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
+  {symboli                   markerb, markedi, matchedb, eventSeti, exceptioni, descriptions                          { terminalb, startb,                          eventSeti } }
   ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_DECIMAL_DIGIT_MANY,            0,       0,        0,         0,          0, "<decimal digit +>",                  {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
@@ -413,15 +419,15 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    * is revisited to:
    *
-   * <meta identifier>               = <letter> _META_IDENTIFIER_CHARACTER_MANY rank => 1
-   * <meta identifier>               = <letter>
-   * _META_IDENTIFIER_CHARACTER_MANY = <meta identifier character>+
+   * <meta identifier>               = <letter> _META_IDENTIFIER_CHARACTER_ANY _META_IDENTIFIER_CHARACTER_ANY_MARKER
+   * _META_IDENTIFIER_CHARACTER_ANY  = <meta identifier character>*
    *
    */
   /* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                   markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
+  {symboli                   markerb, markedi, matchedb, eventSeti, exceptioni, descriptions                          { terminalb, startb,                          eventSeti } }
   ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_META_IDENTIFIER_CHARACTER_MANY,0,      0,        0,         0,          0, "<meta identifier trailing>",          {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_META_IDENTIFIER_CHARACTER_ANY, 0,       0,        0,         0,          0, "<meta identifier character *>",      {         0,      0, MARKED_SYMBOL_EVENTS               } },
+  {_META_IDENTIFIER_CHARACTER_ANY_MARKER, 1,_META_IDENTIFIER_CHARACTER_ANY,0,0,-1,"<meta identifier character * marker>",{       1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * special sequence = special sequence symbol, {special sequence character}, special sequence symbol
    *
@@ -431,7 +437,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <special sequence> = <special sequence symbol> <special sequence character any> <special sequence symbol>
    */
   /* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                   markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
+  {symboli                   markerb, markedi, matchedb, eventSeti, exceptioni, descriptions                          { terminalb, startb,                          eventSeti } }
   ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_SPECIAL_SEQUENCE_CHARACTER_ANY,0,       0,        0,         0,          0, "<special sequence character *>",     {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
@@ -445,12 +451,12 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * special sequence character alt 2 = special sequence symbol
    */
   /* -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                             markerb,                           markedi, matchedb, eventSeti, exceptionb, descriptions                                 { terminalb, startb,                          eventSeti } }
+  {symboli                             markerb,                           markedi, matchedb, eventSeti, exceptioni, descriptions                                 { terminalb, startb,                          eventSeti } }
   -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_SPECIAL_SEQUENCE_CHARACTER_ALT_1,        0,                                 0,        0,         0,          0, "<special sequence character alt 1>",        {         0,      0, -1 /* All Events */                } },
-  {_SPECIAL_SEQUENCE_CHARACTER_ALT_1_MARKER, 1, _SPECIAL_SEQUENCE_CHARACTER_ALT_1,        0,         0,          0, "<special sequence character alt 1 marker>", {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_SPECIAL_SEQUENCE_CHARACTER_ALT_2,        0,                                 0,        0,         0,          0, "<special sequence character alt 2>",        {         0,      0, -1 /* All Events */                } },
-  {_SPECIAL_SEQUENCE_CHARACTER_ALT_2_MARKER, 1, _SPECIAL_SEQUENCE_CHARACTER_ALT_2,        0,         0,          1, "<special sequence character alt 2 marker>", {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SPECIAL_SEQUENCE_CHARACTER_ALT_1,        0,                                 0,        0,         0,          0, "<special sequence character alt 1>",        {         0,      0, MARKED_SYMBOL_EVENTS               } },
+  {_SPECIAL_SEQUENCE_CHARACTER_ALT_2,        0,                                 0,        0,         0,          0, "<special sequence character alt 2>",        {         0,      0, MARKED_SYMBOL_EVENTS               } },
+  {_SPECIAL_SEQUENCE_CHARACTER_ALT_1_MARKER, 1, _SPECIAL_SEQUENCE_CHARACTER_ALT_1,        0,         0, _SPECIAL_SEQUENCE_CHARACTER_ALT_2, "<special sequence character alt 1 marker>",{0,0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_SPECIAL_SEQUENCE_CHARACTER_ALT_2_MARKER, 1,                                -1,        0,         0,         -1, "<special sequence character alt 2 marker>", {         1,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * bracketed textual comment = start comment symbol, {comment symbol}, end comment symbol
    *
@@ -460,7 +466,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <bracketed textual comment> = <start comment symbol> <comment symbol any> <end comment symbol>
    */
   /* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                   markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
+  {symboli                   markerb, markedi, matchedb, eventSeti, exceptioni, descriptions                          { terminalb, startb,                          eventSeti } }
   ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_COMMENT_SYMBOL_ANY,            0,       0,        0,         0,          0, "<comment symbol *>",                 {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
@@ -475,7 +481,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <syntax> = <syntax 01>
    */
   /* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                   markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
+  {symboli                   markerb, markedi, matchedb, eventSeti, exceptioni, descriptions                          { terminalb, startb,                          eventSeti } }
   ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_BRACKETED_TEXTUAL_COMMENT_ANY, 0,       0,        0,         0,          0, "<bracketed textual comment *>",      {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {_SYNTAX_UNIT,                   0,       0,        0,         0,          0, "<syntax unit>",                      {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
@@ -491,7 +497,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <syntax> = <syntax 01>
    */
   /* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                   markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
+  {symboli                   markerb, markedi, matchedb, eventSeti, exceptioni, descriptions                          { terminalb, startb,                          eventSeti } }
   ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_SYNTAX_RULE_MANY,              0,       0,        0,         0,          0, "<syntax rule +>",                    {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {_SYNTAX_02,                     0,       0,        0,         0,          0, "<syntax 02>",                        {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
@@ -514,7 +520,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
     syntactic factor = [integer, repetition symbol], syntactic primary
   */
   /* ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                   markerb, markedi, matchedb, eventSeti, exceptionb, descriptions                          { terminalb, startb,                          eventSeti } }
+  {symboli                   markerb, markedi, matchedb, eventSeti, exceptioni, descriptions                          { terminalb, startb,                          eventSeti } }
   ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_DEFINITIONS_SEQUENCE,          0,       0,        0,         0,          0, "<definitions sequence>",             {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
 };
@@ -596,8 +602,8 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 1,            -1, 0, 1 }, _DECIMAL_DIGIT_MANY,              1, { DECIMAL_DIGIT } },
   { { 0, 0, 0,            -1, 0, 0 }, INTEGER,                          1, { _DECIMAL_DIGIT_MANY } },
 
-  { { 0, 0, 1,            -1, 0, 1 }, _META_IDENTIFIER_CHARACTER_MANY,  1, { META_IDENTIFIER_CHARACTER } },
-  { { 1, 0, 0,            -1, 0, 0 }, META_IDENTIFIER,                  2, { LETTER, _META_IDENTIFIER_CHARACTER_MANY } },
+  { { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER,                  3, { LETTER, _META_IDENTIFIER_CHARACTER_ANY, _META_IDENTIFIER_CHARACTER_ANY_MARKER } },
+  { { 0, 0, 1,            -1, 0, 0 }, _META_IDENTIFIER_CHARACTER_ANY,   1, { META_IDENTIFIER_CHARACTER } },
 
   { { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER_CHARACTER,        1, { LETTER } },
   { { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER_CHARACTER,        1, { DECIMAL_DIGIT } },
@@ -759,6 +765,8 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   marpaWrapperRecognizer_t      *marpaWrapperRecognizerp = NULL;
   marpaEBNFAlternative_t        *alternativep            = NULL;
   marpaWrapperValue_t           *marpaWrapperValuep      = NULL;
+  GENERICSTACK_DECL(inputStackp)                         = NULL;
+  GENERICSTACK_DECL(outputStackp)                        = NULL;
 
   marpaWrapperRecognizerOption_t marpaWrapperRecognizerOption;
   size_t                         eventl;
@@ -766,7 +774,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   size_t                         i;
   size_t                         nSymboll;
   int                           *symbolArrayp;
-  int                            symboli, markedSymboli;
+  int                            symboli, markedSymboli, exceptionSymboli;
   marpaEBNFSymbol_t             *marpaEBNFSymbolp;
   char                           c;
   char                          *p, *q;
@@ -782,8 +790,6 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   short                          doCompleteb = 0;
   short                          rci;
   short                          discardb;
-  GENERICSTACK_DECL(inputStackp);
-  GENERICSTACK_DECL(outputStackp);
 
   if ((marpaEBNFp == NULL) || (grammars == NULL)) {
     errno = EINVAL;
@@ -875,11 +881,18 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
       for (i = 0; i < nSymboll; i++) {
 	symboli = symbolArrayp[i];
 	marpaEBNFp->symbolArrayp[symboli].matchedb  = 0;
-	/* If this terminal is an internal marker, reset */
-	/* also the event data for the marked symbol.    */
-	if (MARPAEBNF_SYMBOL_IS_MARKER(&(marpaEBNFp->symbolArrayp[symboli]))) {
-	  symboli = marpaEBNFp->symbolArrayp[symboli].markedi;
-	  marpaEBNFp->symbolArrayp[symboli].eventSeti = 0;
+	/* If this terminal is an internal marker... */
+	if (marpaEBNFp->symbolArrayp[symboli].markerb != 0) {
+	  markedSymboli = marpaEBNFp->symbolArrayp[symboli].markedi;
+	  exceptionSymboli = marpaEBNFp->symbolArrayp[symboli].exceptioni;
+          if (markedSymboli >= 0) {
+            /* ... reset also the event data for the marked symbol */
+            marpaEBNFp->symbolArrayp[markedSymboli].eventSeti = 0;
+          }
+          if (exceptionSymboli >= 0) {
+          /* ... and for the eventual exception symbol */
+            marpaEBNFp->symbolArrayp[symboli].eventSeti = 0;
+          }
 	}
       }
     }
@@ -970,7 +983,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	for (i = 0; i < nSymboll; i++) {
 	  symboli = symbolArrayp[i];
 	  marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[symboli]);
-	  if (MARPAEBNF_SYMBOL_IS_MARKER(marpaEBNFSymbolp)) {
+	  if (marpaEBNFSymbolp->markerb != 0) {
 	    continue;
 	  }
 
@@ -1193,8 +1206,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	okb = 0;
         symboli = symbolArrayp[i];
 	marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[symboli]);
-	/* Note that we restrict this part only to markers that are NOT an exception */
-	if (! MARPAEBNF_SYMBOL_IS_MARKER_OK(marpaEBNFSymbolp)) {
+	if (marpaEBNFSymbolp->markerb == 0) {
 	  continue;
 	}
 	if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
@@ -1202,18 +1214,37 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	}
 
 	markedSymboli = marpaEBNFSymbolp->markedi;
-	marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[markedSymboli]);
-	if ((marpaEBNFSymbolp->eventSeti & MARPAWRAPPERGRAMMAR_EVENTTYPE_NULLED) == MARPAWRAPPERGRAMMAR_EVENTTYPE_NULLED) {
-	  okb = 1;
-	} else if ((marpaEBNFSymbolp->eventSeti & MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION) == MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION) {
-	  if ((marpaEBNFSymbolp->eventSeti & MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION) == MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION) {
-	    if (marpaEBNFSymbolp->matchedb == 0) {
-	      okb = 1;
-	    }
-	  } else {
-	    okb = 1;
-	  }
-	}
+        if (markedSymboli < 0) {
+          /* Is associated to a maked symbol (case of an alternatives with an exception) */
+          continue;
+        }
+        marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[markedSymboli]);
+
+        /* But this one can be < 0 */
+	exceptionSymboli = marpaEBNFSymbolp->exceptioni;
+        
+        if (((exceptionSymboli >= 0) && ((marpaEBNFp->symbolArrayp[exceptionSymboli].eventSeti & (MARPAWRAPPERGRAMMAR_EVENTTYPE_NULLED|MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION)) == MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE))
+            ||
+            (exceptionSymboli < 0)) {
+          if ((marpaEBNFSymbolp->eventSeti & MARPAWRAPPERGRAMMAR_EVENTTYPE_NULLED) == MARPAWRAPPERGRAMMAR_EVENTTYPE_NULLED) {
+            okb = 1;
+          } else if ((marpaEBNFSymbolp->eventSeti & MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION) == MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION) {
+            if ((marpaEBNFSymbolp->eventSeti & MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION) == MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION) {
+              if (marpaEBNFSymbolp->matchedb == 0) {
+                okb = 1;
+              }
+            } else {
+              okb = 1;
+            }
+          }
+        } else {
+          if (exceptionSymboli >= 0) {
+            /* Safer to log this... */
+            if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+              GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Exception symbol %s discard the symbol %s", marpaEBNFSymbolp->descriptions, marpaEBNFp->symbolArrayp[exceptionSymboli].descriptions);
+            }
+          }
+        }
         if (okb) {
 	  /* Remember we matched it */
 	  marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[symboli]);
