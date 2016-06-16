@@ -857,6 +857,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
           rejectedSymboli = marpaEBNFSymbolp->exceptioni;
           if (rejectedSymboli >= 0) {
 	    GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Predicted rejection on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, rejectedSymboli));
+	    marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[rejectedSymboli]);
             marpaEBNFSymbolp->rejectedb  = 1;
           }
 	  break;
@@ -874,6 +875,9 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	}
       }
     }
+
+    /* If rejectedb is a true value, this just mean that at least one rule is rejecting the symbol */
+    /* We have to look if there is at one rule that is NOT rejecting it.                           */
 
     alternativeokl = 0;
     if (nSymboll > 0) {
