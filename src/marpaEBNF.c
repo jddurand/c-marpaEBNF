@@ -309,12 +309,26 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
   /*
    * syntax = {gap separator}, gap free symbol, {gap separator}, {gap free symbol, {gap separator}}
    *
-   * is revisited to:
+   * could revisited to:
    *
    * <gap separator any> = <gap separator>*
    * <gap symbol unit> = <gap free symbol> <gap separator any>
    * <gap symbol unit many> = <gap free symbol unit>+
    * <syntax> = <gap separator any> <gap symbol unit many>
+   *
+   * but take care, there is an ambiguity:
+   * <gap separator> is a non-printing character, in particular space ' '
+   * <gap free symbol> is a <terminal character> minus the quotes or a <terminal string>. But a <terminal character> can be an <other character>, itself being potentially a ' ' character
+   *
+   * Now: EBNF says that a non printing character, i.e. <gap separator>
+   * has no formal effect on a syntax if the character is outside a <terminal string>,
+   * or pair of characters forming a single <terminal character>.
+   *
+   * Since we manage <terminal characters> as a single entity, this is resumed to:
+   * the ' ' character cannot be an <other character> if we are not in a <terminal string> context.
+   * The consequence
+   *
+   *
    */
   /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   {symboli                   matchedb, eventSeti, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
@@ -735,7 +749,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   int                           *expectedSymbolArrayp;
   int                            symboli;
   marpaEBNFSymbol_t             *marpaEBNFSymbolp;
-  char                           c;
+  char                           c, initialc;
   char                          *p, *q;
   char                          *maxp;
   size_t                         grammarLengthl;
@@ -924,7 +938,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	  marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[symboli]);
 
 	  okb = 0;
-	  c = *p;
+	  c = initialc = *p;
 	  q = p + 1;
 
 	  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
@@ -1040,7 +1054,6 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 		case END_OPTION_SYMBOL:
 		  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
 		    GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rejected %s (terminal string or special sequence context)", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
-		    GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Grammar was at: %s", p);
 		  }
 		  okb = 0;
 		  break;
@@ -1048,7 +1061,21 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 		  break;
 		}
 	      }
-	    }
+	    } else {
+              /* Reject ' ' if outside of a terminal string */
+              switch (symboli) {
+              case OTHER_CHARACTER:
+                if ((initialc == ' ') && (marpaEBNFp->terminalStringContexti <= 0)) {
+                  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+                    GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rejected %s (outside of terminal string context)", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
+                  }
+                  okb = 0;
+                }
+                break;
+              default:
+                break;
+	      }
+            }
 	  }
 	  if (okb) {
 	    alternativep[alternativeokl].symboli = symboli;
@@ -1070,7 +1097,6 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
       /* Keep only the longests */
       lengthl = alternativep[0].lengthl;
       for (i = 0; i < alternativeokl; i++) {
-	/* If we managed correctly the context, we should never have more than one terminal */
 	if (alternativep[i].lengthl < lengthl) {
 	  break;
 	}
@@ -1291,7 +1317,11 @@ static inline short _marpaEBNFvalueRuleCallback(void *userDatavp, int rulei, int
   if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
     if (rulep->rhsSymboll > 0) {
       if (rulep->rhsSymboll == 1) {
-	GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s ;", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions);
+        if (marpaEBNFp->ruleArrayp[rulei].option.sequenceb != 0) {
+          GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s%s ;", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions, (marpaEBNFp->ruleArrayp[rulei].option.minimumi == 0) ? "*" : "+");
+        } else {
+          GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s ;", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions);
+        }
       } else {
 	GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions);
 	for (i = 1; i < rulep->rhsSymboll; i++) {
