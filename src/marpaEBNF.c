@@ -86,6 +86,8 @@ typedef enum marpaEBNFSymbolEnum {
   _SECOND_TERMINAL_CHARACTER_ALT_2,
 
   _GAP_SEPARATOR_ANY,
+  _GAP_SYMBOL_UNIT,
+  _GAP_SYMBOL_UNIT_MANY,
 
   _COMMENTLESS_SYMBOL_ALT_1,
   _COMMENTLESS_SYMBOL_ALT_1_1,
@@ -101,6 +103,8 @@ typedef enum marpaEBNFSymbolEnum {
   _COMMENT_SYMBOL_ANY,
 
   _BRACKETED_TEXTUAL_COMMENT_ANY,
+  _COMMENTLESS_SYMBOL_UNIT,
+  _COMMENTLESS_SYMBOL_UNIT_MANY,
 
   _DEFINITIONS_SEQUENCE,
 } marpaEBNFSymbol_e;
@@ -308,13 +312,16 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * is revisited to:
    *
    * <gap separator any> = <gap separator>*
-   * <syntax> = <gap free symbol> <syntax>gap separator any> <syntax> rank => 1
-   * <syntax> = <gap separator any> <gap free symbol> <gap separator any> 
+   * <gap symbol unit> = <gap free symbol> <gap separator any>
+   * <gap symbol unit many> = <gap free symbol unit>+
+   * <syntax> = <gap separator any> <gap symbol unit many>
    */
   /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   {symboli                   matchedb, eventSeti, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
   -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_GAP_SEPARATOR_ANY,              0,         0,          0, "<gap separator any>",               {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_GAP_SYMBOL_UNIT,                0,         0,          0, "<gap symbol unit>",                 {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_GAP_SYMBOL_UNIT_MANY,           0,         0,          0, "<gap symbol unit many>",            {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * commentless symbol = terminal character
    *                       - (letter
@@ -425,15 +432,17 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    * is revisited to:
    *
-   * <bracketed textual comment any> = <bracketed textual comment> <bracketed textual comment any>
-   * <bracketed textual comment any> =
-   * <syntax> = <bracketed textual comment any> <commentless symbol> <bracketed textual comment any> <syntax> rank => 1
-   * <syntax> = <bracketed textual comment any> <commentless symbol>
+   * <bracketed textual comment any> = <bracketed textual comment>*
+   * <commentless symbol unit> = <commentless symbol> <bracketed textual comment any>
+   * <commentless symbol unit many> = <commentless symbol unit>+
+   * <syntax> = <bracketed textual comment any> <commentless symbol unit many>
    */
   /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   {symboli                   matchedb, eventSeti, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
   -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
   {_BRACKETED_TEXTUAL_COMMENT_ANY, 0,         0,          0, "<bracketed textual comment any>",    {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_COMMENTLESS_SYMBOL_UNIT,       0,         0,          0, "<commentless symbol unit>",          {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  {_COMMENTLESS_SYMBOL_UNIT_MANY,  0,         0,          0, "<commentless symbol unit many>",     {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
    * syntax = syntax rule, {syntax rule}
    *
@@ -529,8 +538,9 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { FORM_FEED } },
 
   { { 0, 0, 1,            -1, 0, 0 }, _GAP_SEPARATOR_ANY,               1, { GAP_SEPARATOR } },
-  { { 1, 0, 0,            -1, 0, 0 }, SYNTAX,                           3, { GAP_FREE_SYMBOL, _GAP_SEPARATOR_ANY, SYNTAX } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           3, { _GAP_SEPARATOR_ANY, GAP_FREE_SYMBOL, _GAP_SEPARATOR_ANY } },
+  { { 0, 0, 0,            -1, 0, 0 }, _GAP_SYMBOL_UNIT,                 2, { GAP_FREE_SYMBOL, _GAP_SEPARATOR_ANY } },
+  { { 0, 0, 1,            -1, 0, 1 }, _GAP_SYMBOL_UNIT_MANY,            1, { _GAP_SYMBOL_UNIT } },
+  { { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _GAP_SEPARATOR_ANY, _GAP_SYMBOL_UNIT_MANY } },
 
   { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { _COMMENTLESS_SYMBOL_ALT_1 } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { META_IDENTIFIER } },
@@ -574,10 +584,10 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, _COMMENT_SYMBOL_ANY,              0, { -1 } },
   { { 0, 0, 0,            -1, 0, 0 }, BRACKETED_TEXTUAL_COMMENT,        3, { START_COMMENT_SYMBOL, _COMMENT_SYMBOL_ANY, END_COMMENT_SYMBOL } },
 
-  { { 1, 0, 0,            -1, 0, 0 }, _BRACKETED_TEXTUAL_COMMENT_ANY,   2, { BRACKETED_TEXTUAL_COMMENT, _BRACKETED_TEXTUAL_COMMENT_ANY } },
-  { { 0, 0, 0,            -1, 0, 0 }, _BRACKETED_TEXTUAL_COMMENT_ANY,   0, { -1 } },
-  { { 1, 0, 0,            -1, 0, 0 }, SYNTAX,                           4, { _BRACKETED_TEXTUAL_COMMENT_ANY, COMMENTLESS_SYMBOL, _BRACKETED_TEXTUAL_COMMENT_ANY, SYNTAX } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _BRACKETED_TEXTUAL_COMMENT_ANY, COMMENTLESS_SYMBOL } },
+  { { 0, 0, 1,            -1, 0, 0 }, _BRACKETED_TEXTUAL_COMMENT_ANY,   1, { BRACKETED_TEXTUAL_COMMENT } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_UNIT,         2, { COMMENTLESS_SYMBOL, _BRACKETED_TEXTUAL_COMMENT_ANY } },
+  { { 0, 0, 1,            -1, 0, 1 }, _COMMENTLESS_SYMBOL_UNIT_MANY,    1, { _COMMENTLESS_SYMBOL_UNIT } },
+  { { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _BRACKETED_TEXTUAL_COMMENT_ANY, _COMMENTLESS_SYMBOL_UNIT_MANY } },
 
   { { 1, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { SYNTAX_RULE, SYNTAX } },
   { { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           1, { SYNTAX_RULE } },
