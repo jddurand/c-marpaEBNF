@@ -69,8 +69,8 @@ typedef enum marpaEBNFSymbolEnum {
   _GAP_FREE_SYMBOL_ALT_1,
   _GAP_FREE_SYMBOL_ALT_1_1,
   _GAP_FREE_SYMBOL_ALT_1_2,
-  _NOT_FIRST_QUOTE_SYMBOL,
-  _NOT_SECOND_QUOTE_SYMBOL,
+  _KO_FIRST_QUOTE_SYMBOL,
+  _KO_SECOND_QUOTE_SYMBOL,
 
   _FIRST_TERMINAL_CHARACTER_MANY,
   _SECOND_TERMINAL_CHARACTER_MANY,
@@ -88,12 +88,12 @@ typedef enum marpaEBNFSymbolEnum {
   _COMMENTLESS_SYMBOL_ALT_1,
   _COMMENTLESS_SYMBOL_ALT_1_1,
   _COMMENTLESS_SYMBOL_ALT_1_2,
-  _NOT_LETTER,
-  _NOT_DECIMAL_DIGIT,
-  _NOT_START_COMMENT_SYMBOL,
-  _NOT_END_COMMENT_SYMBOL,
-  _NOT_SPECIAL_SEQUENCE_SYMBOL,
-  _NOT_OTHER_CHARACTER,
+  _KO_LETTER,
+  _KO_DECIMAL_DIGIT,
+  _KO_START_COMMENT_SYMBOL,
+  _KO_END_COMMENT_SYMBOL,
+  _KO_SPECIAL_SEQUENCE_SYMBOL,
+  _KO_OTHER_CHARACTER,
 
   _META_IDENTIFIER_CHARACTER_ANY,
 
@@ -217,10 +217,10 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * gap free symbol alt 1   = gap free symbol alt 1.1
    *                         | gap free symbol alt 1.2
    * gap free symbol alt 1.1 = terminal character
-   * gap free symbol alt 1.2 = <not first quote symbol>
-   *                         | <not second quote symbol>
-   * <not first quote symbol> = <first quote symbol>
-   * <not second quote symbol> = <second quote symbol>
+   * gap free symbol alt 1.2 = <first quote symbol KO>
+   *                         | <second quote symbol KO>
+   * <first quote symbol> = <first quote symbol KO>
+   * <second quote symbol> = <second quote symbol KO>
    */
   /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   {symboli                  rejectedb, eventSeti, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
@@ -228,8 +228,8 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
   {_GAP_FREE_SYMBOL_ALT_1,          0,         0,         -1, "<gap free symbol alt 1>",           {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {_GAP_FREE_SYMBOL_ALT_1_1,        0,         0,         -1, "<gap free symbol alt 1.1>",         {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {_GAP_FREE_SYMBOL_ALT_1_2,        0,         0,         -1, "<gap free symbol alt 1.2>",         {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_NOT_FIRST_QUOTE_SYMBOL,         0,         0,  FIRST_QUOTE_SYMBOL, "<not first quote symbol>", {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
-  {_NOT_SECOND_QUOTE_SYMBOL,        0,         0,  SECOND_QUOTE_SYMBOL, "<not second quote symbol>", {       0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
+  {_KO_FIRST_QUOTE_SYMBOL,          0,         0,  FIRST_QUOTE_SYMBOL, "<first quote symbol KO>",  {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
+  {_KO_SECOND_QUOTE_SYMBOL,         0,         0,  SECOND_QUOTE_SYMBOL, "<second quote symbol KO>",{       0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
   /*
    * terminal string = first quote symbol, first terminal character, {first terminal character}, first quote symbol
    *                 | second quote symbol, second terminal character, {second terminal character}, second quote symbol
@@ -256,7 +256,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * first terminal character = first terminal character alt 1
    * first terminal character = first terminal character alt 2
    * first terminal character alt 1 = terminal character
-   * first terminal character alt 2 = <not first quote symbol>
+   * first terminal character alt 2 = <first quote symbol KO>
    *
    */
   /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -272,7 +272,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * second terminal character = second terminal character alt 1
    * second terminal character = second terminal character alt 2
    * second terminal character alt 1 = terminal character
-   * second terminal character alt 2 = <not second quote symbol>
+   * second terminal character alt 2 = <second quote symbol KO>
    *
    */
   /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -335,14 +335,14 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * commentless symbol alt 1 = commentless symbol alt 1.1
    *                            commentless symbol alt 1.2
    * commentless symbol alt 1.1 = terminal character
-   * commentless symbol alt 1.2 = <not letter>
-   *                             | <not decimal digit>
-   *                             | <not first quote symbol>
-   *                             | <not second quote symbol>
-   *                             | <not start comment symbol>
-   *                             | <not end comment symbol>
-   *                             | <not special sequence symbol>
-   *                             | <not other character>)
+   * commentless symbol alt 1.2 = <letter KO>
+   *                             | <decimal digit KO>
+   *                             | <first quote symbol KO>
+   *                             | <second quote symbol KO>
+   *                             | <start comment symbol KO>
+   *                             | <end comment symbol KO>
+   *                             | <special sequence symbol KO>
+   *                             | <other character KO>)
    *
    */
   /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -351,12 +351,12 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
   {_COMMENTLESS_SYMBOL_ALT_1,       0,         0,         -1, "<commentless symbol alt 1>",        {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {_COMMENTLESS_SYMBOL_ALT_1_1,     0,         0,         -1, "<commentless symbol alt 1.1>",      {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   {_COMMENTLESS_SYMBOL_ALT_1_2,     0,         0,         -1, "<commentless symbol alt 1.2>",      {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_NOT_LETTER,                     0,         0, LETTER, "<not letter>",                          {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
-  {_NOT_DECIMAL_DIGIT,              0,         0, DECIMAL_DIGIT, "<not decimal digit>",            {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
-  {_NOT_START_COMMENT_SYMBOL,       0,         0, START_COMMENT_SYMBOL, "<not start comment symbol>", {      0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
-  {_NOT_END_COMMENT_SYMBOL,         0,         0, END_COMMENT_SYMBOL, "<not end comment symbol>",  {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
-  {_NOT_SPECIAL_SEQUENCE_SYMBOL,    0,         0, SPECIAL_SEQUENCE_SYMBOL, "<not special sequence symbol>", {0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
-  {_NOT_OTHER_CHARACTER,            0,         0, OTHER_CHARACTER, "<not other character>",        {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
+  {_KO_LETTER,                      0,         0, LETTER, "<letter KO>",                           {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
+  {_KO_DECIMAL_DIGIT,               0,         0, DECIMAL_DIGIT, "<decimal digit KO>",             {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
+  {_KO_START_COMMENT_SYMBOL,        0,         0, START_COMMENT_SYMBOL, "<start comment symbol KO>",{        0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
+  {_KO_END_COMMENT_SYMBOL,          0,         0, END_COMMENT_SYMBOL, "<end comment symbol KO>",   {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
+  {_KO_SPECIAL_SEQUENCE_SYMBOL,     0,         0, SPECIAL_SEQUENCE_SYMBOL, "<special sequence symbol KO>", { 0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
+  {_KO_OTHER_CHARACTER,             0,         0, OTHER_CHARACTER, "<other charactero KO>",        {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
   /*
    * integer = decimal digit, {decimal digit}
    *
@@ -397,7 +397,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * special sequence character = special sequence character alt 1
    * special sequence character = special sequence character alt 2
    * special sequence character alt 1 = terminal character
-   * special sequence character alt 2 = <not special sequence symbol>
+   * special sequence character alt 2 = <special sequence symbol KO>
    *
    */
   /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -503,8 +503,8 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1,           1, { _GAP_FREE_SYMBOL_ALT_1_1 } },
   { { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1,           1, { _GAP_FREE_SYMBOL_ALT_1_2 } },
   { { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_1,         1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2,         1, { _NOT_FIRST_QUOTE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2,         1, { _NOT_SECOND_QUOTE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2,         1, { _KO_FIRST_QUOTE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1_2,         1, { _KO_SECOND_QUOTE_SYMBOL } },
 
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { FIRST_QUOTE_SYMBOL, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL } },
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { SECOND_QUOTE_SYMBOL, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
@@ -514,12 +514,12 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         1, { _FIRST_TERMINAL_CHARACTER_ALT_1 } },
   { { 0, 0, 0,            -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         1, { _FIRST_TERMINAL_CHARACTER_ALT_2 } },
   { { 0, 0, 0,            -1, 0, 0 }, _FIRST_TERMINAL_CHARACTER_ALT_1,  1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, _FIRST_TERMINAL_CHARACTER_ALT_2,  1, { _NOT_FIRST_QUOTE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _FIRST_TERMINAL_CHARACTER_ALT_2,  1, { _KO_FIRST_QUOTE_SYMBOL } },
 
   { { 0, 0, 0,           -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,         1, { _SECOND_TERMINAL_CHARACTER_ALT_1 } },
   { { 0, 0, 0,           -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,         1, { _SECOND_TERMINAL_CHARACTER_ALT_2 } },
   { { 0, 0, 0,           -1, 0, 0 }, _SECOND_TERMINAL_CHARACTER_ALT_1,  1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,           -1, 0, 0 }, _SECOND_TERMINAL_CHARACTER_ALT_2,  2, { _NOT_SECOND_QUOTE_SYMBOL } },
+  { { 0, 0, 0,           -1, 0, 0 }, _SECOND_TERMINAL_CHARACTER_ALT_2,  2, { _KO_SECOND_QUOTE_SYMBOL } },
 
   { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { SPACE_CHARACTER } },
   { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { HORIZONTAL_TABULATION_CHARACTER } },
@@ -540,14 +540,14 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        1, { _COMMENTLESS_SYMBOL_ALT_1_1 } },
   { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        1, { _COMMENTLESS_SYMBOL_ALT_1_2 } },
   { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_1,      1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _NOT_LETTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _NOT_DECIMAL_DIGIT } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _NOT_FIRST_QUOTE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _NOT_SECOND_QUOTE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _NOT_START_COMMENT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _NOT_END_COMMENT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _NOT_SPECIAL_SEQUENCE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _NOT_OTHER_CHARACTER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _KO_LETTER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _KO_DECIMAL_DIGIT } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _KO_FIRST_QUOTE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _KO_SECOND_QUOTE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _KO_START_COMMENT_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _KO_END_COMMENT_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _KO_SPECIAL_SEQUENCE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1_2,      1, { _KO_OTHER_CHARACTER } },
 
   { { 0, 0, 1,            -1, 0, 1 }, INTEGER,                          1, { DECIMAL_DIGIT } },
 
@@ -563,7 +563,7 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE_CHARACTER,       1, { _SPECIAL_SEQUENCE_CHARACTER_ALT_1 } },
   { { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE_CHARACTER,       1, { _SPECIAL_SEQUENCE_CHARACTER_ALT_2 } },
   { { 0, 0, 0,            -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ALT_1,1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ALT_2,1, { _NOT_SPECIAL_SEQUENCE_SYMBOL } },
+  { { 0, 0, 0,            -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ALT_2,1, { _KO_SPECIAL_SEQUENCE_SYMBOL } },
 
   { { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { BRACKETED_TEXTUAL_COMMENT } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { OTHER_CHARACTER } },
