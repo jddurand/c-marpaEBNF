@@ -7,6 +7,7 @@
 #include "genericStack.h"
 #include "marpaWrapper.h"
 #include "marpaEBNF.h"
+#include "marpaEBNF/internal/logging.h"
 
 #define MARPAEBNF_LENGTH_ARRAY(x) (sizeof(x)/sizeof((x)[0]))
 
@@ -660,16 +661,12 @@ marpaEBNF_t *marpaEBNF_newp(marpaEBNFOption_t *marpaEBNFOptionp)
   marpaEBNFp->grammarp             = NULL;
   marpaEBNFp->symbolArrayp         = (marpaEBNFSymbol_t *) malloc(marpaEBNFSymbolArraySizel);
   if (marpaEBNFp->symbolArrayp == NULL) {
-    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-      GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
-    }
+    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
     goto err;
   }
   marpaEBNFp->ruleArrayp           = (marpaEBNFRule_t *) malloc(marpaEBNFRuleArraySizel);
   if (marpaEBNFp->ruleArrayp == NULL) {
-    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-      GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
-    }
+    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
     goto err;
   }
 
@@ -708,6 +705,7 @@ marpaEBNF_t *marpaEBNF_newp(marpaEBNFOption_t *marpaEBNFOptionp)
 short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 /****************************************************************************/
 {
+  const static char             funcs[]                  = "marpaEBNF_grammarb";
   int                            linel                   = 1;
   int                            columnl                 = 1;
   marpaWrapperRecognizer_t      *marpaWrapperRecognizerp = NULL;
@@ -751,17 +749,13 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   /* Create input stack */
   GENERICSTACK_NEW(inputStackp);
   if (GENERICSTACK_ERROR(inputStackp)) {
-    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-      GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_ERROR error, %s", strerror(errno));
-    }
+    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_ERROR error, %s", strerror(errno));
     goto err;
   }
   /* Marpa does not like the indice 0 with the input stack, it means an unvalued symbol */
   GENERICSTACK_PUSH_ANY(inputStackp, NULL, NULL, NULL);
   if (GENERICSTACK_ERROR(inputStackp)) {
-    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-      GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_ANY error, %s", strerror(errno));
-    }
+    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_ANY error, %s", strerror(errno));
     goto err;
   }
 
@@ -784,10 +778,8 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 
     if ((marpaEBNFp->terminalStringContexti == 0) && (marpaEBNFp->specialSequenceContexti == 0) && (p < maxp - 2)) {
       if ((strncmp(p, "(*)", 3) == 0) || (strncmp(p, "(:)", 3) == 0) || (strncmp(p, "(/)", 3) == 0)) {
-	if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-	  GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Invalid sequence of characters outside a terminal string or a special sequence context: %c%c%c", p[0], p[1], p[2]);
-	  goto err;
-	}
+        MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Invalid sequence of characters outside a terminal string or a special sequence context: %c%c%c", p[0], p[1], p[2]);
+        goto err;
       }
     }
 
@@ -801,18 +793,14 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
     if (alternativep == NULL) {
       alternativep = malloc(nSymboll * sizeof(marpaEBNFAlternative_t));
       if (alternativep == NULL) {
-        if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-          GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
-        }
+        MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
 	goto err;
       }
       alternativel = nSymboll;
     } else if (alternativel < nSymboll) {
       marpaEBNFAlternative_t *tmp = (marpaEBNFAlternative_t *) realloc(alternativep, nSymboll * sizeof(marpaEBNFAlternative_t));
       if (tmp == NULL) {
-        if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-          GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "realloc error, %s", strerror(errno));
-        }
+        MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "realloc error, %s", strerror(errno));
 	goto err;
       }
       alternativep = tmp;
@@ -838,25 +826,19 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	switch (eventp[i].eventType) {
 	case MARPAWRAPPERGRAMMAR_EVENT_COMPLETED:
 	  eventTypee = MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION;
-	  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-	    GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Completion event on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, eventp[i].symboli));
-	  }
+          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Completion event on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, eventp[i].symboli));
 	  break;
 	case MARPAWRAPPERGRAMMAR_EVENT_NULLED:
 	  eventTypee = MARPAWRAPPERGRAMMAR_EVENTTYPE_NULLED;
-	  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-	    GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Nulled event on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, eventp[i].symboli));
-	  }
+          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Nulled event on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, eventp[i].symboli));
 	  break;
 	case MARPAWRAPPERGRAMMAR_EVENT_EXPECTED:
 	  eventTypee = MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION;
-	  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-	    GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Predicted event on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, eventp[i].symboli));
-	  }
+          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Predicted event on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, eventp[i].symboli));
 	  marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[eventp[i].symboli]);
           rejectedSymboli = marpaEBNFSymbolp->exceptioni;
           if (rejectedSymboli >= 0) {
-	    GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Predicted rejection on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, rejectedSymboli));
+	    MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Predicted rejection on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, rejectedSymboli));
 	    marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[rejectedSymboli]);
             marpaEBNFSymbolp->rejectedb  = 1;
           }
@@ -899,9 +881,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	  c = initialc = *p;
 	  q = p + 1;
 
-	  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-	    GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Expected terminal: %s", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), p);
-	  }
+          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Expected terminal: %s", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), p);
 	  /* Process only terminals that we know about */
 	  switch (symboli) {
 	  case LETTER:
@@ -1010,9 +990,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 		case END_REPEAT_SYMBOL:
 		case START_OPTION_SYMBOL:
 		case END_OPTION_SYMBOL:
-		  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-		    GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rejected %s (terminal string or special sequence context)", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
-		  }
+                  MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Rejected %s (terminal string or special sequence context)", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
 		  okb = 0;
 		  break;
 		default:
@@ -1024,9 +1002,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
               switch (symboli) {
               case OTHER_CHARACTER:
                 if ((initialc == ' ') && (marpaEBNFp->terminalStringContexti == 0)) {
-                  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-                    GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rejected %s (outside of terminal string context)", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
-                  }
+                  MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Rejected %s (outside of terminal string context)", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
                   okb = 0;
                 }
                 break;
@@ -1062,48 +1038,34 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	/* Our input stack is a copy of what was matched */
 	tokens = malloc(lengthl + 1);
 	if (tokens == NULL) {
-          if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-            GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
-          }
+          MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
 	  goto err;
 	}
 	strncpy(tokens, p, lengthl);
 	tokens[lengthl] = '\0';
 	GENERICSTACK_PUSH_ANY(inputStackp, tokens, NULL, _genericStackFree);
         if (GENERICSTACK_ERROR(inputStackp)) {
-          if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-            GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_ANY error, %s", strerror(errno));
-          }
+          MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_ANY error, %s", strerror(errno));
           goto err;
         }
-	if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-	  GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Accepted terminal %s of length %ld: \"%s\"", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), (unsigned long) lengthl, tokens);
-	}
+        MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Accepted terminal %s of length %ld: \"%s\"", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), (unsigned long) lengthl, tokens);
         switch (symboli) {
         case SPECIAL_SEQUENCE_SYMBOL:
           if (marpaEBNFp->terminalStringContexti == 0) {
-            if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-              GENERICLOGGER_TRACE(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Special sequence context is starting");
-            }
+            MARPAEBNF_TRACE(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Special sequence context is starting");
             marpaEBNFp->specialSequenceContexti = 1;
           } else {
-            if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-              GENERICLOGGER_TRACE(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Special sequence context is ending");
-            }
+            MARPAEBNF_TRACE(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Special sequence context is ending");
             marpaEBNFp->specialSequenceContexti = 0;
           }
           break;
         case FIRST_QUOTE_SYMBOL:
         case SECOND_QUOTE_SYMBOL:
           if (marpaEBNFp->terminalStringContexti == 0) {
-            if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-              GENERICLOGGER_TRACE(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Terminal string context is starting");
-            }
+            MARPAEBNF_TRACE(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Terminal string context is starting");
             marpaEBNFp->terminalStringContexti = 1;
           } else {
-            if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-              GENERICLOGGER_TRACE(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Terminal string context is ending");
-            }
+            MARPAEBNF_TRACE(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Terminal string context is ending");
             marpaEBNFp->terminalStringContexti = 0;
           }
           break;
@@ -1125,18 +1087,14 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
     } else {
       /* This is an error if we are not at the end of the grammar */
       if (p < maxp) {
-	if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-	  GENERICLOGGER_ERROR(marpaEBNFp->marpaEBNFOption.genericLoggerp, "No terminal nor discard detected");
-	}
+        MARPAEBNF_ERROR(marpaEBNFp->marpaEBNFOption.genericLoggerp, "No terminal nor discard detected");
 	goto err;
       }
     }
 
     if (p < maxp) {
       /* Resume */   
-      if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-	GENERICLOGGER_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Moving forward by %ld", lengthl);
-      }
+      MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Moving forward by %ld", lengthl);
       p += lengthl;
     } else {
       break;
@@ -1161,9 +1119,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   /* Create and remember output stack */
   GENERICSTACK_NEW(outputStackp);
   if (GENERICSTACK_ERROR(outputStackp)) {
-    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-      GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_ERROR error, %s", strerror(errno));
-    }
+    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_ERROR error, %s", strerror(errno));
     goto err;
   }
   marpaEBNFp->outputStackp = outputStackp;
@@ -1174,7 +1130,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 			       _marpaEBNFvalueRuleCallback,
 			       _marpaEBNFvalueSymbolCallback,
 			       NULL) > 0) {
-    GENERICLOGGER_TRACE(marpaEBNFp->marpaEBNFOption.genericLoggerp, "---------- Got a value");
+    MARPAEBNF_TRACE(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "---------- Got a value");
     if (++rci > 1) {
       goto err;
     }
@@ -1202,7 +1158,9 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   if (marpaWrapperRecognizerp != NULL) {
     if (rci == 0) {
       /* Log current state of the recognizer */
-      marpaWrapperRecognizer_progressLogb(marpaWrapperRecognizerp, -1, -1, GENERICLOGGER_LOGLEVEL_ERROR, marpaEBNFp, _marpaEBNF_symbolDescription);
+      if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
+        marpaWrapperRecognizer_progressLogb(marpaWrapperRecognizerp, -1, -1, GENERICLOGGER_LOGLEVEL_ERROR, marpaEBNFp, _marpaEBNF_symbolDescription);
+      }
     }
     marpaWrapperRecognizer_freev(marpaWrapperRecognizerp);
   }
@@ -1303,22 +1261,22 @@ static inline short _marpaEBNFvalueRuleCallback(void *userDatavp, int rulei, int
     if (rulep->rhsSymboll > 0) {
       if (rulep->rhsSymboll == 1) {
         if (marpaEBNFp->ruleArrayp[rulei].option.sequenceb != 0) {
-          GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s%s ;", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions, (marpaEBNFp->ruleArrayp[rulei].option.minimumi == 0) ? "*" : "+");
+          MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s%s ;", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions, (marpaEBNFp->ruleArrayp[rulei].option.minimumi == 0) ? "*" : "+");
         } else {
-          GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s ;", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions);
+          MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s ;", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions);
         }
       } else {
-	GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions);
+	MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions);
 	for (i = 1; i < rulep->rhsSymboll; i++) {
 	  if (i == rulep->rhsSymboll - 1) {
-	    GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "\t%s ;", marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[i]].descriptions);
+	    MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "\t%s ;", marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[i]].descriptions);
 	  } else {
-	    GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "\t%s", marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[i]].descriptions);
+	    MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "\t%s", marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[i]].descriptions);
 	  }
 	}
       }
     } else {
-      GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s ;", rulei, lhsp->descriptions);
+      MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s ;", rulei, lhsp->descriptions);
     }
   }
 
@@ -1340,9 +1298,9 @@ static inline short _marpaEBNFvalueSymbolCallback(void *userDatavp, int symboli,
 
   if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
     if (inputs != NULL) {
-      GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "  Symbol No %2d value callback: %s, input: \"%s\"", symboli, symbolp->descriptions, inputs);
+      MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "  Symbol No %2d value callback: %s, input: \"%s\"", symboli, symbolp->descriptions, inputs);
     } else {
-      GENERICLOGGER_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "  Symbol No %2d value callback: %s, input: NULL", symboli, symbolp->descriptions);
+      MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "  Symbol No %2d value callback: %s, input: NULL", symboli, symbolp->descriptions);
     }
   }
 
@@ -1352,18 +1310,14 @@ static inline short _marpaEBNFvalueSymbolCallback(void *userDatavp, int symboli,
   } else {
     outputs = strdup(inputs);
     if (outputs == NULL) {
-      if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-        GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "strdup error, %s", strerror(errno));
-      }
+      MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "strdup error, %s", strerror(errno));
       goto err;
     }
     GENERICSTACK_SET_ANY(outputStackp, outputs, NULL, _genericStackFree, argi);
   }
 
   if (GENERICSTACK_ERROR(outputStackp)) {
-    if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-      GENERICLOGGER_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_SET_ANY error, %s", strerror(errno));
-    }
+    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_SET_ANY error, %s", strerror(errno));
     goto err;
   }
 
