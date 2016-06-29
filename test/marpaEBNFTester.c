@@ -70,7 +70,7 @@ static char *ebnfs =
 "(* see 7.5 *) other character" "\n"
 "= ' ' | ':' | '+' | '_' | '%' | 'Q'" "\n"
 "| '&' | '#' | '$' | '<' | '>' | '\\'" "\n"
-"| '^' | ''' | '~';" "\n"
+"| '^' | \"'\" | '~';" "\n"
 "(* see 7.6 *) space character = ' ';" "\n"
 "horizontal tabulation character" "\n"
 "= ? ISO 6429 character Horizontal Tabulation ? ;" "\n"
