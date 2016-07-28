@@ -2,10 +2,11 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "config.h"
-#include "genericStack.h"
-#include "marpaWrapper.h"
+#include <genericStack.h>
+#include <marpaWrapper.h>
 #include "marpaEBNF.h"
 #include "marpaEBNF/internal/logging.h"
 
@@ -13,6 +14,8 @@
 
 /* Convenience enum, also used to make sure that symbol id is the enum -; */
 typedef enum marpaEBNFSymbolEnum {
+  _START,          /* Just because the default is to set start symbol to the first symbol */
+
   LETTER,
   DECIMAL_DIGIT,
   CONCATENATE_SYMBOL,
@@ -67,9 +70,22 @@ typedef enum marpaEBNFSymbolEnum {
   COMMENT,
 
   /* Internal symbols */
-  _GAP_FREE_SYMBOL_ALT_1,
-  _KO_FIRST_QUOTE_SYMBOL,
-  _KO_SECOND_QUOTE_SYMBOL,
+
+  _CARRIAGE_RETURN,
+  _CARRIAGE_RETURN_ANY,
+  _LINE_FEED,
+
+  _START_REPEAT_SYMBOL_0,
+  _START_REPEAT_SYMBOL_1,
+
+  _END_REPEAT_SYMBOL_0,
+  _END_REPEAT_SYMBOL_1,
+
+  _START_OPTION_SYMBOL_0,
+  _START_OPTION_SYMBOL_1,
+
+  _END_OPTION_SYMBOL_0,
+  _END_OPTION_SYMBOL_1,
 
   _FIRST_TERMINAL_CHARACTER_MANY,
   _SECOND_TERMINAL_CHARACTER_MANY,
@@ -77,14 +93,6 @@ typedef enum marpaEBNFSymbolEnum {
   _GAP_SEPARATOR_ANY,
   _GAP_SYMBOL_UNIT,
   _GAP_SYMBOL_UNIT_MANY,
-
-  _COMMENTLESS_SYMBOL_ALT_1,
-  _KO_LETTER,
-  _KO_DECIMAL_DIGIT,
-  _KO_START_COMMENT_SYMBOL,
-  _KO_END_COMMENT_SYMBOL,
-  _KO_SPECIAL_SEQUENCE_SYMBOL,
-  _KO_OTHER_CHARACTER,
 
   _META_IDENTIFIER_CHARACTER_ANY,
 
@@ -97,15 +105,11 @@ typedef enum marpaEBNFSymbolEnum {
   _COMMENTLESS_SYMBOL_UNIT_MANY,
 
   _DEFINITIONS_SEQUENCE,
-} marpaEBNFSymbol_e;
+} marpaEBNFSymbolEnum_t;
 
 typedef struct marpaEBNFSymbol {
-  marpaEBNFSymbol_e                 symboli;
-  short                             rejectedb;  /* Initialized to 0 at each lex lookup for every expected terminal */
-  int                               acceptedi;  /* Used to determine if rejectedb can be maintained depending on context */
-  int                               exceptioni;
-  char                             *descriptions;
-  marpaWrapperGrammarSymbolOption_t option;
+  marpaEBNFSymbolEnum_t symboli;
+  char                 *descriptions;
 } marpaEBNFSymbol_t;
 
 typedef struct marpaEBNFRule {
@@ -117,102 +121,94 @@ typedef struct marpaEBNFRule {
 
 /* List of all symbols of the EBNF grammar as per ISO/IEC 14977:1996 */
 static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
-  /* -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                  rejectedb, acceptedi, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
-  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {LETTER,                          0,         0,         -1, "<letter>",                          {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {DECIMAL_DIGIT,                   0,         0,         -1, "<decimal digit>",                   {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {CONCATENATE_SYMBOL,              0,         0,         -1, "<concatenate symbol>",              {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {DEFINING_SYMBOL,                 0,         0,         -1, "<defining symbol>",                 {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {DEFINITION_SEPARATOR_SYMBOL,     0,         0,         -1, "<definition separator symbol>",     {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {END_COMMENT_SYMBOL,              0,         0,         -1, "<end comment symbol>",              {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {END_GROUP_SYMBOL,                0,         0,         -1, "<end group symbol>",                {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {END_OPTION_SYMBOL,               0,         0,         -1, "<end option symbol>",               {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {END_REPEAT_SYMBOL,               0,         0,         -1, "<end repeat symbol>",               {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {EXCEPT_SYMBOL,                   0,         0,         -1, "<except symbol>",                   {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {FIRST_QUOTE_SYMBOL,              0,         0,         -1, "<first quote symbol>",              {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {REPETITION_SYMBOL,               0,         0,         -1, "<repetition symbol>",               {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {SECOND_QUOTE_SYMBOL,             0,         0,         -1, "<second quote symbol>",             {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {SPECIAL_SEQUENCE_SYMBOL,         0,         0,         -1, "<special sequence symbol>",         {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {START_COMMENT_SYMBOL,            0,         0,         -1, "<start comment symbol>",            {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {START_GROUP_SYMBOL,              0,         0,         -1, "<start group symbol>",              {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {START_OPTION_SYMBOL,             0,         0,         -1, "<start option symbol>",             {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {START_REPEAT_SYMBOL,             0,         0,         -1, "<start repeat symbol>",             {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {TERMINATOR_SYMBOL,               0,         0,         -1, "<terminator symbol>",               {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {OTHER_CHARACTER,                 0,         0,         -1, "<other character>",                 {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {SPACE_CHARACTER,                 0,         0,         -1, "<space character>",                 {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {HORIZONTAL_TABULATION_CHARACTER, 0,         0,         -1, "<horizontal tabulation character>", {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {NEW_LINE,                        0,         0,         -1, "<new line>",                        {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {VERTICAL_TABULATION_CHARACTER,   0,         0,         -1, "<vertical tabulation character>",   {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {FORM_FEED,                       0,         0,         -1, "<form feed>",                       {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /* -------------------------------------------
+  {symboli                        , descriptions
+  ---------------------------------------------- */
+  {_START                         , "[:start:]" },
+  {LETTER                         , "<letter>" },
+  {DECIMAL_DIGIT                  , "<decimal digit>" },
+  {CONCATENATE_SYMBOL             , "<concatenate symbol>" },
+  {DEFINING_SYMBOL                , "<defining symbol>" },
+  {DEFINITION_SEPARATOR_SYMBOL    , "<definition separator symbol>" },
+  {END_COMMENT_SYMBOL             , "<end comment symbol>" },
+  {END_GROUP_SYMBOL               , "<end group symbol>" },
+  {END_OPTION_SYMBOL              , "<end option symbol>" },
+  {END_REPEAT_SYMBOL              , "<end repeat symbol>" },
+  {EXCEPT_SYMBOL                  , "<except symbol>" },
+  {FIRST_QUOTE_SYMBOL             , "<first quote symbol>" },
+  {REPETITION_SYMBOL              , "<repetition symbol>" },
+  {SECOND_QUOTE_SYMBOL            , "<second quote symbol>" },
+  {SPECIAL_SEQUENCE_SYMBOL        , "<special sequence symbol>" },
+  {START_COMMENT_SYMBOL           , "<start comment symbol>" },
+  {START_GROUP_SYMBOL             , "<start group symbol>" },
+  {START_OPTION_SYMBOL            , "<start option symbol>" },
+  {START_REPEAT_SYMBOL            , "<start repeat symbol>" },
+  {TERMINATOR_SYMBOL              , "<terminator symbol>" },
+  {OTHER_CHARACTER                , "<other character>" },
+  {SPACE_CHARACTER                , "<space character>" },
+  {HORIZONTAL_TABULATION_CHARACTER, "<horizontal tabulation character>" },
+  {NEW_LINE                       , "<new line>" },
+  {VERTICAL_TABULATION_CHARACTER  , "<vertical tabulation character>" },
+  {FORM_FEED                      , "<form feed>" },
+  {TERMINAL_CHARACTER             , "<terminal character>" },
+  {GAP_FREE_SYMBOL                , "<gap free symbol>" },
+  {TERMINAL_STRING                , "<terminal string>" },
+  {FIRST_TERMINAL_CHARACTER       , "<first terminal character>" },
+  {SECOND_TERMINAL_CHARACTER      , "<second terminal character>" },
+  {GAP_SEPARATOR                  , "<gap separator>" },
+  {SYNTAX                         , "<syntax>" },
+  {COMMENTLESS_SYMBOL             , "<commentless symbol>" },
+  {INTEGER                        , "<integer>" },
+  {META_IDENTIFIER                , "<meta identifier>" },
+  {META_IDENTIFIER_CHARACTER      , "<meta identifier character>" },
+  {SPECIAL_SEQUENCE               , "<special sequence>" },
+  {SPECIAL_SEQUENCE_CHARACTER     , "<special sequence character>" },
+  {COMMENT_SYMBOL                 , "<comment symbol>" },
+  {BRACKETED_TEXTUAL_COMMENT      , "<bracketed textual comment>" },
+  {SYNTAX_RULE                    , "<syntax rule>" },
+  {DEFINITIONS_LIST               , "<definitions list>" },
+  {SINGLE_DEFINITION              , "<single definition>" },
+  {SYNTACTIC_TERM                 , "<syntactic term>" },
+  {SYNTACTIC_EXCEPTION            , "<syntactic exception>" },
+  {SYNTACTIC_FACTOR               , "<syntactic factor>" },
+  {SYNTACTIC_PRIMARY              , "<syntactic primary>" },
+  {OPTIONAL_SEQUENCE              , "<optional sequence>" },
+  {REPEATED_SEQUENCE              , "<repeated sequence>" },
+  {GROUPED_SEQUENCE               , "<grouped sequence>" },
+  {EMPTY_SEQUENCE                 , "<empty sequence>" },
+  {COMMENT                        , "<comment>" },
+  /*
+    some symbols are explicitely splitted into their two letters
+  */
+  {_CARRIAGE_RETURN              , "<carriage return>" },
+  {_CARRIAGE_RETURN_ANY          , "<carriage return any*>" },
+  {_LINE_FEED                    , "<line feed>" },
+  {_START_REPEAT_SYMBOL_0         , "<start repeat symbol 0>" },
+  {_START_REPEAT_SYMBOL_1         , "<start repeat symbol 1>" },
+  {_END_REPEAT_SYMBOL_0           , "<end repeat symbol 0>" },
+  {_END_REPEAT_SYMBOL_1           , "<end repeat symbol 1>" },
+  {_START_OPTION_SYMBOL_0         , "<start option symbol 0>" },
+  {_START_OPTION_SYMBOL_1         , "<start option symbol 1>" },
+  {_END_OPTION_SYMBOL_0           , "<end option symbol 0>" },
+  {_END_OPTION_SYMBOL_1           , "<end option symbol 1>" },
 
-  /* -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                  rejectedb, acceptedi, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
-  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {TERMINAL_CHARACTER,              0,         0,         -1, "<terminal character>",              {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {GAP_FREE_SYMBOL,                 0,         0,         -1, "<gap free symbol>",                 {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {TERMINAL_STRING,                 0,         0,         -1, "<terminal string>",                 {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {FIRST_TERMINAL_CHARACTER,        0,         0,         -1, "<first terminal character>",        {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {SECOND_TERMINAL_CHARACTER,       0,         0,         -1, "<second terminal character>",       {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {GAP_SEPARATOR,                   0,         0,         -1, "<gap separator>",                   {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {SYNTAX,                          0,         0,         -1, "<syntax>",                          {         0,      1,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },  /* start symbol */
-  {COMMENTLESS_SYMBOL,              0,         0,         -1, "<commentless symbol>",              {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {INTEGER,                         0,         0,         -1, "<integer>",                         {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {META_IDENTIFIER,                 0,         0,         -1, "<meta identifier>",                 {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {META_IDENTIFIER_CHARACTER,       0,         0,         -1, "<meta identifier character>",       {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {SPECIAL_SEQUENCE,                0,         0,         -1, "<special sequence>",                {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } }, /* To detect end of special sequence */
-  {SPECIAL_SEQUENCE_CHARACTER,      0,         0,         -1, "<special sequence character>",      {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {COMMENT_SYMBOL,                  0,         0,         -1, "<comment symbol>",                  {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {BRACKETED_TEXTUAL_COMMENT,       0,         0,         -1, "<bracketed textual comment>",       {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {SYNTAX_RULE,                     0,         0,         -1, "<syntax rule>",                     {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {DEFINITIONS_LIST,                0,         0,         -1, "<definitions list>",                {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {SINGLE_DEFINITION,               0,         0,         -1, "<single definition>",               {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {SYNTACTIC_TERM,                  0,         0,         -1, "<syntactic term>",                  {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {SYNTACTIC_EXCEPTION,             0,         0,         -1, "<syntactic exception>",             {         0,      0, MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION } }, /* no meta identifier! */
-  {SYNTACTIC_FACTOR,                0,         0,         -1, "<syntactic factor>",                {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {SYNTACTIC_PRIMARY,               0,         0,         -1, "<syntactic primary>",               {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {OPTIONAL_SEQUENCE,               0,         0,         -1, "<optional sequence>",               {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {REPEATED_SEQUENCE,               0,         0,         -1, "<repeated sequence>",               {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {GROUPED_SEQUENCE,                0,         0,         -1, "<grouped sequence>",                {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {EMPTY_SEQUENCE,                  0,         0,         -1, "<empty sequence>",                  {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {COMMENT,                         0,         0,         -1, "<comment>",                         {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
   /*
     Note: handling of the exception with standard BNF
     *
     * Given a rule
     *   X = A - B
     *
-    * EBNF requires that the syntactic exception B can be rewriten as a syntactic factor
-    * containing no syntactic factor. This simply mean that there is no meta identifier
-    * in B. In other words, B can be only composed of terminal alternatives, i.e.:
+    * We rewrite it as:
     *
-    *  X = A - (T1 | T2 | etc...)
+    *   X = A [XOK_PREDICTION_EVENT] XOK
     *
-    * where Tx are terminals. X is rewriten as:
+    * where _XOK is an internal lexeme. When XOK_PREDICTION_EVENT, we trigger a sub-rule where B is the start symbol.
     *
-    *   X = A   rank =>  0
-    *   X = T1  rank => -1
-    *   X = T2  rank => -1
-    *
-    * and we require the value to take high-only ranked rules.
-    *
-    * This method will always work, though there is a side effect: the number of earlemes
-    * set can grow unecessary. Therefore we protect this case by predicting if Tx can never
-    * match or not. It can never match it is predicted only by rules with a negative rank.
-    *
-    * X is again revisited to:
-    *
-    *   X      = A
-    *   X      = NOT_T1
-    *   X      = NOT_T2
-    *   NOT_T1 ~ T1 event => predicted
-    *   NOT_T2 ~ T2 event => predicted
-    *
-    * where NOT_Tx is an explicit terminal typed to be the negation of T1, with a prediction event:
-    * Of NOT_Tx is predicted, this mean we expect Tx. Then we look if Tx is only predicted in
-    * exception contexts, and if this is the case, we reject it in advance.
-    * Notice that rank disappears, because NOT_Tx is an internal lexeme that will NEVER match.
-    *
+    *  :start = B
+    * We associate a completion event on
+    * We remember only X = A in the grammar, and remember in the rules array that X = A is not possible if A matches B.
+    * It is better to remember that in the ASF tree rather than in the grammar, because saying X = A | B in the grammar
+    * would introduce too many earley items.
     */
   /* ---------------- */
   /* Internal symbols */
@@ -223,19 +219,11 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    * is revisited to:
    *
-   * gap free symbol         = gap free symbol alt 1
+   * gap free symbol         = terminal character
    *                         | terminal string
    *
-   * gap free symbol alt 1   = terminal character
-   * gap free symbol alt 1   = not first quote symbol     rank => -1
-   * gap free symbol alt 1   = not second quote symbol    rank => -1
+   * and we will remember that rule <gap free symbol> ::= <terminal character> is not allowed if it <terminal character> matches <first quote symbol> or <second quote symbol>
    */
-  /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                  rejectedb, acceptedi, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
-  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_GAP_FREE_SYMBOL_ALT_1,          0,         0,         -1, "<gap free symbol alt 1>",           {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_KO_FIRST_QUOTE_SYMBOL,          0,         0,  FIRST_QUOTE_SYMBOL, "<first quote symbol KO>",  {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
-  {_KO_SECOND_QUOTE_SYMBOL,         0,         0,  SECOND_QUOTE_SYMBOL, "<second quote symbol KO>",{         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
   /*
    * terminal string = first quote symbol, first terminal character, {first terminal character}, first quote symbol
    *                 | second quote symbol, second terminal character, {second terminal character}, second quote symbol
@@ -249,18 +237,19 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * _SECOND_TERMINAL_CHARACTER_MANY = <second terminal character>+
    *
    */
-  /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                  rejectedb, acceptedi, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
-  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_FIRST_TERMINAL_CHARACTER_MANY,  0,         0,         -1, "<first terminal character many>",   {         0,      0,      MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_SECOND_TERMINAL_CHARACTER_MANY, 0,         0,         -1, "<second terminal character many>",  {         0,      0,      MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /* -------------------------------------------
+  {symboli                        , descriptions
+  ---------------------------------------------- */
+  {_FIRST_TERMINAL_CHARACTER_MANY,  "<first terminal character many>" },
+  {_SECOND_TERMINAL_CHARACTER_MANY, "<second terminal character many>" },
   /*
    * first terminal character = terminal character - first quote symbol
    *
    * is revisited to:
    *
    * first terminal character = terminal character
-   * first terminal character = not first quote symbol rank => -1
+   *
+   * and we remember that this rule is not possible if terminal character matches first quote symbol
    *
    */
   /*
@@ -269,7 +258,8 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * is revisited to:
    *
    * second terminal character = terminal character
-   * second terminal character = not second quote symbol rank => -1
+   *
+   * and we remember that this rule is not possible if terminal character matches second quote symbol
    *
    */
   /*
@@ -296,12 +286,12 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    *
    */
-  /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                  rejectedb, acceptedi, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
-  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_GAP_SEPARATOR_ANY,              0,         0,         -1, "<gap separator any>",               {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_GAP_SYMBOL_UNIT,                0,         0,         -1, "<gap symbol unit>",                 {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_GAP_SYMBOL_UNIT_MANY,           0,         0,         -1, "<gap symbol unit many>",            {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /* ----------------------------------------------
+  {symboli                  , descriptions
+  -------------------------------------------------- */
+  {_GAP_SEPARATOR_ANY       , "<gap separator any>" },
+  {_GAP_SYMBOL_UNIT         , "<gap symbol unit>" },
+  {_GAP_SYMBOL_UNIT_MANY    , "<gap symbol unit many>" },
   /*
    * commentless symbol = terminal character
    *                       - (letter
@@ -319,32 +309,15 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    * is revisited to:
    *
-   * commentless symbol = commentless symbol alt 1
+   * commentless symbol = terminal character
    *                     | meta identifier
    *                     | integer
    *                     | terminal string
    *                     | special sequence
-   * commentless symbol alt 1 = terminal character
-   * commentless symbol alt 1 = <letter KO>
-   *                          | <decimal digit KO>
-   *                          | <first quote symbol KO>
-   *                          | <second quote symbol KO>
-   *                          | <start comment symbol KO>
-   *                          | <end comment symbol KO>
-   *                          | <special sequence symbol KO>
-   *                          | <other character KO>)
    *
+   * and will remember that <commentless symbol> ::= <terminal character> is not possible if
+   * <terminal character> matches <letter>|<decimal digit>|<first quote symbol>|etc...
    */
-  /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                  rejectedb, acceptedi, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
-  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_COMMENTLESS_SYMBOL_ALT_1,       0,         0,         -1, "<commentless symbol alt 1>",        {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_KO_LETTER,                      0,         0, LETTER, "<letter KO>",                           {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
-  {_KO_DECIMAL_DIGIT,               0,         0, DECIMAL_DIGIT, "<decimal digit KO>",             {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
-  {_KO_START_COMMENT_SYMBOL,        0,         0, START_COMMENT_SYMBOL, "<start comment symbol KO>",{        1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
-  {_KO_END_COMMENT_SYMBOL,          0,         0, END_COMMENT_SYMBOL, "<end comment symbol KO>",   {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
-  {_KO_SPECIAL_SEQUENCE_SYMBOL,     0,         0, SPECIAL_SEQUENCE_SYMBOL, "<special sequence symbol KO>", { 1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
-  {_KO_OTHER_CHARACTER,             0,         0, OTHER_CHARACTER, "<other charactero KO>",        {         1,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION } },
   /*
    * integer = decimal digit, {decimal digit}
    *
@@ -361,10 +334,10 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * _META_IDENTIFIER_CHARACTER_ANY  = <meta identifier character>*
    *
    */
-  /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                  rejectedb, acceptedi, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
-  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_META_IDENTIFIER_CHARACTER_ANY,  0,         0,         -1, "<meta identifier character any>",   {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /* ------------------------------------------
+  {symboli                       , descriptions
+  --------------------------------------------- */
+  {_META_IDENTIFIER_CHARACTER_ANY, "<meta identifier character any>" },
   /*
    * special sequence = special sequence symbol, {special sequence character}, special sequence symbol
    *
@@ -373,32 +346,31 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <special sequence character any> = <special sequence character>*
    * <special sequence> = <special sequence symbol> <special sequence character any> <special sequence symbol>
    */
-  /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                  rejectedb, acceptedi, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
-  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_SPECIAL_SEQUENCE_CHARACTER_ANY, 0,         0,         -1, "<special sequence character any>",  {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /* -------------------------------------------
+  {symboli                        , descriptions
+  ---------------------------------------------- */
+  {_SPECIAL_SEQUENCE_CHARACTER_ANY, "<special sequence character any>" },
   /*
    * special sequence character = terminal character - special sequence symbol
    *
    * is revisited to:
    *
    * special sequence character = terminal character
-   * special sequence character = <special sequence symbol KO>
    *
+   * and we will remember in the rules that it is not possible if <terminal characer> matches <special sequence symbol>
    */
   /*
    * bracketed textual comment = start comment symbol, {comment symbol}, end comment symbol
    *
    * is revisited to:
    *
-   * <comment symbol any> = <comment symbol> <comment symbol any>
-   * <comment symbol any> =
+   * <comment symbol any> = <comment symbol>*
    * <bracketed textual comment> = <start comment symbol> <comment symbol any> <end comment symbol>
    */
-  /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                  rejectedb, acceptedi, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
-  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_COMMENT_SYMBOL_ANY,             0,         0,         -1, "<comment symbol any>",              {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /* -------------------------------
+  {symboli            , descriptions
+  ---------------------------------- */
+  {_COMMENT_SYMBOL_ANY, "<comment symbol any>" },
   /*
    * syntax = {bracketed textual comment}, commentless symbol, {bracketed textual comment}, {commentless symbol, {bracketed textual comment}}
    *
@@ -409,12 +381,12 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <commentless symbol unit many> = <commentless symbol unit>+
    * <syntax> = <bracketed textual comment any> <commentless symbol unit many>
    */
-  /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                  rejectedb, acceptedi, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
-  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_BRACKETED_TEXTUAL_COMMENT_ANY,  0,         0,         -1, "<bracketed textual comment any>",    {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_COMMENTLESS_SYMBOL_UNIT,        0,         0,         -1, "<commentless symbol unit>",          {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
-  {_COMMENTLESS_SYMBOL_UNIT_MANY,   0,         0,         -1, "<commentless symbol unit many>",     {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /* ------------------------------------------
+  {symboli                       , descriptions
+  --------------------------------------------- */
+  {_BRACKETED_TEXTUAL_COMMENT_ANY, "<bracketed textual comment any>" },
+  {_COMMENTLESS_SYMBOL_UNIT      , "<commentless symbol unit>" },
+  {_COMMENTLESS_SYMBOL_UNIT_MANY,  "<commentless symbol unit many>" },
   /*
    * syntax = syntax rule, {syntax rule}
    *
@@ -440,10 +412,10 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
     syntactic term = syntactic factor [except symbol, syntactic exception]
     syntactic factor = [integer, repetition symbol], syntactic primary
   */
-  /* ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  {symboli                  rejectedb, acceptedi, exceptioni, descriptions                         { terminalb, startb,                                eventSeti } }
-  -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-  {_DEFINITIONS_SEQUENCE,           0,         0,         -1, "<definitions sequence>",             {         0,      0,       MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE } },
+  /* ---------------------------------
+  {symboli              , descriptions
+  ------------------------------------ */
+  {_DEFINITIONS_SEQUENCE, "<definitions sequence>" },
 };
 
 
@@ -451,14 +423,15 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   /* ------------------------------------------------------------------------------------------------------------------------------- */
   /*{ marpaWrapperGrammarRuleOption},         lhsSymboli,      rhsSymboll, { rhsSymbolip }                                           */
   /*  ranki
-      nullRanksHighb
-      sequenceb
-      separatorSymboli
-      properb
-      minimumi
+        nullRanksHighb
+            sequenceb
+                          separatorSymboli
+                              properb
+                                 minimumi
   */
   /* ------------------------------------------------------------------------------------------------------------------------------- */
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { LETTER } },
+  { { 0, 0, 0,            -1, 0, 0 }, _START,                           1, { SYNTAX } },
+
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { DECIMAL_DIGIT } },
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { CONCATENATE_SYMBOL } },
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { DEFINING_SYMBOL } },
@@ -479,22 +452,32 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { TERMINATOR_SYMBOL } },
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { OTHER_CHARACTER } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  1, { _GAP_FREE_SYMBOL_ALT_1 } },
+  { { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  1, { TERMINAL_CHARACTER } },
   { { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  1, { TERMINAL_STRING } },
-  { { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1,           1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1,           1, { _KO_FIRST_QUOTE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _GAP_FREE_SYMBOL_ALT_1,           1, { _KO_SECOND_QUOTE_SYMBOL } },
 
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { FIRST_QUOTE_SYMBOL, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL } },
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { SECOND_QUOTE_SYMBOL, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
+
+  { { 0, 0, 0,            -1, 0, 0 }, NEW_LINE,                         3, { _CARRIAGE_RETURN_ANY, _LINE_FEED, _CARRIAGE_RETURN_ANY } },
+  { { 0, 0, 1,            -1, 0, 0 }, _CARRIAGE_RETURN_ANY,             1, { _CARRIAGE_RETURN } },
+
+
+  { { 0, 0, 0,            -1, 0, 0 }, START_REPEAT_SYMBOL,              1, { _START_REPEAT_SYMBOL_0 } },
+  { { 0, 0, 0,            -1, 0, 0 }, START_REPEAT_SYMBOL,              1, { _START_REPEAT_SYMBOL_1 } },
+  { { 0, 0, 0,            -1, 0, 0 }, END_REPEAT_SYMBOL,                1, { _END_REPEAT_SYMBOL_0 } },
+  { { 0, 0, 0,            -1, 0, 0 }, END_REPEAT_SYMBOL,                1, { _END_REPEAT_SYMBOL_1 } },
+
+  { { 0, 0, 0,            -1, 0, 0 }, START_OPTION_SYMBOL,              1, { _START_OPTION_SYMBOL_0 } },
+  { { 0, 0, 0,            -1, 0, 0 }, START_OPTION_SYMBOL,              1, { _START_OPTION_SYMBOL_1 } },
+  { { 0, 0, 0,            -1, 0, 0 }, END_OPTION_SYMBOL,                1, { _END_OPTION_SYMBOL_0 } },
+  { { 0, 0, 0,            -1, 0, 0 }, END_OPTION_SYMBOL,                1, { _END_OPTION_SYMBOL_1 } },
+
   { { 0, 0, 1,            -1, 0, 1 }, _FIRST_TERMINAL_CHARACTER_MANY,   1, { FIRST_TERMINAL_CHARACTER } },
   { { 0, 0, 1,            -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY,  1, { SECOND_TERMINAL_CHARACTER } },
 
   { { 0, 0, 0,            -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         1, { _KO_FIRST_QUOTE_SYMBOL } },
 
   { { 0, 0, 0,            -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,        1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,        1, { _KO_SECOND_QUOTE_SYMBOL } },
 
   { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { SPACE_CHARACTER } },
   { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { HORIZONTAL_TABULATION_CHARACTER } },
@@ -507,20 +490,11 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 1,            -1, 0, 1 }, _GAP_SYMBOL_UNIT_MANY,            1, { _GAP_SYMBOL_UNIT } },
   { { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _GAP_SEPARATOR_ANY, _GAP_SYMBOL_UNIT_MANY } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { _COMMENTLESS_SYMBOL_ALT_1 } },
+  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { TERMINAL_CHARACTER } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { META_IDENTIFIER } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { INTEGER } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { TERMINAL_STRING } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { SPECIAL_SEQUENCE } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        1, { _KO_LETTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        1, { _KO_DECIMAL_DIGIT } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        1, { _KO_FIRST_QUOTE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        1, { _KO_SECOND_QUOTE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        1, { _KO_START_COMMENT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        1, { _KO_END_COMMENT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        1, { _KO_SPECIAL_SEQUENCE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_ALT_1,        1, { _KO_OTHER_CHARACTER } },
 
   { { 0, 0, 1,            -1, 0, 1 }, INTEGER,                          1, { DECIMAL_DIGIT } },
 
@@ -534,14 +508,12 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE,                 3, { SPECIAL_SEQUENCE_SYMBOL, _SPECIAL_SEQUENCE_CHARACTER_ANY, SPECIAL_SEQUENCE_SYMBOL } },
 
   { { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE_CHARACTER,       1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE_CHARACTER,       1, { _KO_SPECIAL_SEQUENCE_SYMBOL } },
 
   { { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { BRACKETED_TEXTUAL_COMMENT } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { OTHER_CHARACTER } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { COMMENTLESS_SYMBOL } },
 
-  { { 1, 0, 0,            -1, 0, 0 }, _COMMENT_SYMBOL_ANY,              2, { COMMENT_SYMBOL, _COMMENT_SYMBOL_ANY } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENT_SYMBOL_ANY,              0, { -1 } },
+  { { 0, 0, 1,            -1, 0, 0 }, _COMMENT_SYMBOL_ANY,              1, { COMMENT_SYMBOL } },
   { { 0, 0, 0,            -1, 0, 0 }, BRACKETED_TEXTUAL_COMMENT,        3, { START_COMMENT_SYMBOL, _COMMENT_SYMBOL_ANY, END_COMMENT_SYMBOL } },
 
   { { 0, 0, 1,            -1, 0, 0 }, _BRACKETED_TEXTUAL_COMMENT_ANY,   1, { BRACKETED_TEXTUAL_COMMENT } },
@@ -583,11 +555,12 @@ struct marpaEBNF {
   marpaEBNFOption_t      marpaEBNFOption;      /* Option */
   marpaWrapperGrammar_t *grammarp;             /* External grammar */
   marpaWrapperGrammar_t *marpaWrapperGrammarp; /* Internal grammar */
-  marpaEBNFSymbol_t     *symbolArrayp;         /* Copy of marpaEBNFSymbolArray: it has lexer dependent volatile data */
-  marpaEBNFRule_t       *ruleArrayp;           /* Copy of marpaEBNFRuleArray: it has lexer dependent volatile data */
-  int                    terminalStringContexti;    /* EBNF is not ambiguous if we take care of some symbols */
-  int                    terminalStringContextSymboli;  /* Symbol id that instanciated the string context */
-  int                    specialSequenceContexti;   /* that are not allowed.                                 */
+  marpaEBNFSymbol_t     *symbolArrayp;         /* Copy of marpaEBNFSymbolArray */
+  marpaEBNFRule_t       *ruleArrayp;           /* Copy of marpaEBNFRuleArray */
+  /* EBNF is not ambiguous if we take care of some context: <terminal string> and <special sequence> */
+  int                    terminalStringContexti;
+  marpaEBNFSymbolEnum_t  terminalStringContextSymboli;  /* Symbol id that instanciated the string context */
+  int                    specialSequenceContexti;
   genericStack_t        *inputStackp;
   genericStack_t        *outputStackp;
 };
@@ -599,18 +572,7 @@ static marpaEBNFOption_t marpaEBNFOptionDefault = {
   NULL /* genericLoggerp */
 };
 
-typedef struct marpaEBNFAlternative {
-  int symboli;
-  int lengthl;
-} marpaEBNFAlternative_t;
-
-static inline int   _marpaEBNF_alternativeCmpi(const void *p1, const void *p2);
-static inline short _marpaEBNF_valueRuleCallback(void *userDatavp, int rulei, int arg0i, int argni, int resulti);
-static inline short _marpaEBNF_valueSymbolCallback(void *userDatavp, int symboli, int argi, int resulti);
-static inline void  _marpaEBNF_outputStackFree(marpaEBNF_t *marpaEBNFp);
-static inline short _marpaEBNF_outputStackFreeItem(marpaEBNF_t *marpaEBNFp, int argi);
 static inline void  _marpaEBNF_inputStackFree(marpaEBNF_t *marpaEBNFp);
-static inline short _marpaEBNF_inputStackFreeItem(marpaEBNF_t *marpaEBNFp, int argi);
 
 /****************************************************************************/
 marpaEBNF_t *marpaEBNF_newp(marpaEBNFOption_t *marpaEBNFOptionp)
@@ -683,31 +645,22 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   int                            linel                   = 1;
   int                            columnl                 = 1;
   marpaWrapperRecognizer_t      *marpaWrapperRecognizerp = NULL;
-  marpaEBNFAlternative_t        *alternativep            = NULL;
-  marpaWrapperValue_t           *marpaWrapperValuep      = NULL;
+  genericStack_t                *alternativeStackp       = NULL;
 
   marpaWrapperRecognizerOption_t marpaWrapperRecognizerOption;
-  size_t                         eventl;
-  marpaWrapperGrammarEvent_t    *eventp;
   size_t                         i;
   size_t                         nSymboll;
   int                           *expectedSymbolArrayp;
-  int                            symboli, rejectedSymboli;
+  marpaEBNFSymbolEnum_t          symboli;
   marpaEBNFSymbol_t             *marpaEBNFSymbolp;
-  char                           c, initialc;
+  char                           c;
   char                          *p, *q;
   char                          *maxp;
   size_t                         grammarLengthl;
   short                          okb;
-  int                            lengthl, tmplengthl;
-  marpaWrapperGrammarEventType_t eventTypee;
   char                          *tokens;
-  size_t                         alternativel = 0;
-  size_t                         alternativeokl = 0;
-  marpaWrapperValueOption_t      marpaWrapperValueOption;
-  short                          doCompleteb = 0;
+  size_t                         lengthl;
   short                          rci;
-  int                            haveSyntacticExceptionb;
 
   /* Initialize sensible data used in the err section */
   marpaEBNFp->inputStackp  = NULL;
@@ -726,7 +679,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   /* Create input stack */
   GENERICSTACK_NEW(marpaEBNFp->inputStackp);
   if (GENERICSTACK_ERROR(marpaEBNFp->inputStackp)) {
-    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_ERROR error, %s", strerror(errno));
+    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_NEW error, %s", strerror(errno));
     goto err;
   }
   /* Marpa does not like the indice 0 with the input stack, it means an unvalued symbol */
@@ -744,200 +697,46 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
     goto err;
   }
 
-  /* Keep track of context */
-  marpaEBNFp->terminalStringContexti = 0;
-  marpaEBNFp->terminalStringContextSymboli = -1;
-  marpaEBNFp->specialSequenceContexti = 0;
-  
   /* Loop until it is consumed or an error */
   p = grammars;
   maxp = p + grammarLengthl;
   while (p <= maxp) {
 
-    if ((marpaEBNFp->terminalStringContexti == 0) && (marpaEBNFp->specialSequenceContexti == 0) && (p < maxp - 2)) {
-      if ((strncmp(p, "(*)", 3) == 0) || (strncmp(p, "(:)", 3) == 0) || (strncmp(p, "(/)", 3) == 0)) {
-        MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Invalid sequence of characters outside a terminal string or a special sequence context: %c%c%c", p[0], p[1], p[2]);
-        goto err;
-      }
+    /* Initialize alternatives stack */
+    GENERICSTACK_FREE(alternativeStackp);
+    GENERICSTACK_NEW(alternativeStackp);
+    if (GENERICSTACK_ERROR(alternativeStackp)) {
+      MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_NEW error, %s", strerror(errno));
+      goto err;
     }
 
-    /* When p is == maxp, we only take care of the events */
-    
     /* Lookup expected terminals */
     if (marpaWrapperRecognizer_expectedb(marpaWrapperRecognizerp, &nSymboll, &expectedSymbolArrayp) == 0) {
       goto err;
     }
-    /* Make sure we have enough space in the internal alternativep array */
-    if (alternativep == NULL) {
-      alternativep = malloc(nSymboll * sizeof(marpaEBNFAlternative_t));
-      if (alternativep == NULL) {
-        MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
-	goto err;
-      }
-      alternativel = nSymboll;
-    } else if (alternativel < nSymboll) {
-      marpaEBNFAlternative_t *tmp = (marpaEBNFAlternative_t *) realloc(alternativep, nSymboll * sizeof(marpaEBNFAlternative_t));
-      if (tmp == NULL) {
-        MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "realloc error, %s", strerror(errno));
-	goto err;
-      }
-      alternativep = tmp;
-      alternativel = nSymboll;
-    }
-
-    /* Reset rejectedb and acceptedi for all expected terminals */
-    if (nSymboll > 0) {
-      for (i = 0; i < nSymboll; i++) {
-	marpaEBNFp->symbolArrayp[expectedSymbolArrayp[i]].rejectedb = 0;
-	marpaEBNFp->symbolArrayp[expectedSymbolArrayp[i]].acceptedi = 0;
-      }
-    }
-
-    /* Keep track of the presence of syntactic exception in current context           */
-    /* If haveSyntacticExceptionb is != 0, then we have to lookup the context to know */
-    /* if such terminals is truely rejected. It is truely rejected if it appears      */
-    /* only within a syntactic exception.                                             */
-    haveSyntacticExceptionb = 0;
-    
-    /* Get events */
-    if (marpaWrapperGrammar_eventb(marpaEBNFp->marpaWrapperGrammarp, &eventl, &eventp, 0) == 0) {
-      goto err;
-    }
-
-    /* Remember which symbols have an event, set rejectedb for terminals appearing in syntactic exceptions */
-    if (eventl > 0) {
-      for (i = 0; i < eventl; i++) {
-
-	switch (eventp[i].eventType) {
-	case MARPAWRAPPERGRAMMAR_EVENT_COMPLETED:
-	  eventTypee = MARPAWRAPPERGRAMMAR_EVENTTYPE_COMPLETION;
-          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Completion event on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, eventp[i].symboli));
-	  break;
-	case MARPAWRAPPERGRAMMAR_EVENT_NULLED:
-	  eventTypee = MARPAWRAPPERGRAMMAR_EVENTTYPE_NULLED;
-          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Nulled event on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, eventp[i].symboli));
-	  break;
-	case MARPAWRAPPERGRAMMAR_EVENT_EXPECTED:
-	  eventTypee = MARPAWRAPPERGRAMMAR_EVENTTYPE_PREDICTION;
-          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Predicted event on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, eventp[i].symboli));
-	  marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[eventp[i].symboli]);
-          rejectedSymboli = marpaEBNFSymbolp->exceptioni;
-          if (rejectedSymboli >= 0) {
-	    MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Predicted rejection on symbol: %s", _marpaEBNF_symbolDescription(marpaEBNFp, rejectedSymboli));
-            /* Make the original as rejected. This is a fake terminal that will never match */
-            marpaEBNFSymbolp->rejectedb = 1;
-            /* Get the refered symbol and mark it as rejected as well */
-	    marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[rejectedSymboli]);
-            marpaEBNFSymbolp->rejectedb = 1;
-            /* Remember we have to call for progress */
-	    haveSyntacticExceptionb = 1;
-          }
-	  break;
-	default:
-	  eventTypee = MARPAWRAPPERGRAMMAR_EVENTTYPE_NONE;
-	  /* Should never happen and is anyway a no-op */
-	  break;
-	}
-      }
-    }
-
-    if (haveSyntacticExceptionb != 0) {
-      size_t                            nProgressl;
-      marpaWrapperRecognizerProgress_t *progressp;
-      size_t                            progressl;
-      
-      MARPAEBNF_TRACE(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Predicted rejections: looking to the latest context");
-      if (marpaWrapperRecognizer_progressb(marpaWrapperRecognizerp, -1, -1, &nProgressl, &progressp) == 0) {
-	MARPAEBNF_ERROR(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Error when getting latest context");
-	goto err;
-      }
-
-      /* We look to each progress line individually */
-      for (progressl = 0; progressl < nProgressl; progressl++) {
-        int              lhsSymboli;
-        int              rulei;
-        int              positioni;
-        marpaEBNFRule_t *rulep;
-        int              predictedSymboli;
-        int              trueSymboli;
-
-        /* We are not interested in completed positions */
-        if (progressp[progressl].positioni < 0) {
-          continue;
-        }
-        rulei = progressp[progressl].rulei;
-        rulep = &(marpaEBNFp->ruleArrayp[rulei]);
-        lhsSymboli = rulep->lhsSymboli;
-
-        /* We are only interested in positions that are truely predicting a terminal that may be rejected */
-        /* or that is the cause of an eventual rejection.                                                 */
-        /* Please note that fake symbols responsible of rejection also have rejectedb set to 1            */
-        positioni = progressp[progressl].positioni;
-        predictedSymboli = rulep->rhsSymbolip[positioni];
-        marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[predictedSymboli]);
-        if (marpaEBNFSymbolp->rejectedb == 0) {
-          continue;
-        }
-
-        /* Increment or decrement acceptedi per symbol, depending if it is a syntactic exception or not */
-        /* The subtility is that if a rule X = A -T exists, then                     */
-        /*   T exclusion will decrement the counter.                                 */
-        /*   A (or a child of it) will increment the counter if it really predicts T */
-        /* (Please note that nothing imposes A to predict T!)                        */
-        /* Globally a terminal is not rejected if the count if > 0                   */
-        if (marpaEBNFp->symbolArrayp[predictedSymboli].exceptioni >= 0) {
-          trueSymboli = marpaEBNFp->symbolArrayp[predictedSymboli].exceptioni;
-          marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[trueSymboli]);
-          marpaEBNFSymbolp->acceptedi--;
-        } else {
-          trueSymboli = predictedSymboli;
-          marpaEBNFSymbolp->acceptedi++;
-        }
-        MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "... Rule %s predicts terminal %s => true terminal %s have acceptedi=%d", _marpaEBNF_symbolDescription(marpaEBNFp, lhsSymboli), _marpaEBNF_symbolDescription(marpaEBNFp, predictedSymboli), _marpaEBNF_symbolDescription(marpaEBNFp, trueSymboli), marpaEBNFSymbolp->acceptedi);
-      }
-
-      for (i = 0; i < nSymboll; i++) {
-        symboli = expectedSymbolArrayp[i];
-        marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[symboli]);
-
-        if (marpaEBNFSymbolp->rejectedb == 0) {
-          continue;
-        }
-        /* We will certainly not change this flag for fake symbols */
-        if (marpaEBNFSymbolp->exceptioni >= 0) {
-          continue;
-        }
-
-        if (marpaEBNFSymbolp->acceptedi > 0) {
-          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "... %s cannot be definitely excluded in advance", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
-          marpaEBNFSymbolp->rejectedb = 0;
-        } else {
-          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "... %s is definitely excluded in advance", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
-        }
-      }
-    }
-
-    alternativeokl = 0;
     if (nSymboll > 0) {
 
-      /* ----------------------------- */
-      /* look tothe expected terminals */
-      /* ----------------------------- */
       if (p < maxp) {
+        c = *p;
+        q = p + 1;
+        lengthl = 0;
+
+#ifndef MARPAEBNF_NTRACE
+        {
+          char tmps[30];
+          strncpy(tmps, p, sizeof(tmps) - 1);
+          tmps[sizeof(tmps) - 1] = '\0';
+          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "[%d/%d] %s", (int) (p - grammars), (int) (grammarLengthl - 1), tmps);
+        }
+#endif
+
 	for (i = 0; i < nSymboll; i++) {
 	  symboli = expectedSymbolArrayp[i];
 	  marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[symboli]);
 
-          if (marpaEBNFSymbolp->rejectedb != 0) {
-            /* Rejected in advance symbol */
-            continue;
-          }
-
 	  okb = 0;
-	  c = initialc = *p;
-	  q = p + 1;
 
-          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Expected terminal: %s", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), p);
+          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "[%d/%d] %s?", (int) (p - grammars), (int) (grammarLengthl - 1), _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
 	  /* Process only terminals that we know about */
 	  switch (symboli) {
 	  case LETTER:
@@ -956,18 +755,22 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	    if ((c == '|') || (c == '/') || (c == '!')) { okb = 1; }
 	    break;
 	  case END_COMMENT_SYMBOL:
-	    if ((c == '*') && (q < maxp) && (*q++ == ')')) { okb = 1; }
+	    if ((c == '*') && (q < maxp) && (*q == ')')) { okb = 1; ++q; }
 	    break;
 	  case END_GROUP_SYMBOL:
 	    if (c == ')') { okb = 1; }
 	    break;
-	  case END_OPTION_SYMBOL:
-	    if (c == ']')                                       { okb = 1; }
-	    else if ((c == '/') && (q < maxp) && (*q++ == ')')) { okb = 1; }
+	  case _END_OPTION_SYMBOL_0:
+	    if (c == ']') { okb = 1; }
 	    break;
-	  case END_REPEAT_SYMBOL:
-	    if (c == '}')                                       { okb = 1; }
-	    else if ((c == ':') && (q < maxp) && (*q++ == ')')) { okb = 1; }
+	  case _END_OPTION_SYMBOL_1:
+	    if ((c == '/') && (q < maxp) && (*q == ')')) { okb = 1; ++q; }
+	    break;
+	  case _END_REPEAT_SYMBOL_0:
+	    if (c == '}') { okb = 1; }
+	    break;
+	  case _END_REPEAT_SYMBOL_1:
+	    if ((c == ':') && (q < maxp) && (*q == ')')) { okb = 1; ++q; }
 	    break;
 	  case EXCEPT_SYMBOL:
 	    if (c == '-') { okb = 1; }
@@ -985,18 +788,22 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	    if (c == '?') { okb = 1; }
 	    break;
 	  case START_COMMENT_SYMBOL:
-	    if ((c == '(') && (q < maxp) && (*q++ == '*')) { okb = 1; }
+	    if ((c == '(') && (q < maxp) && (*q == '*')) { okb = 1; ++q; }
 	    break;
 	  case START_GROUP_SYMBOL:
 	    if (c == '(') { okb = 1; }
 	    break;
-	  case START_OPTION_SYMBOL:
-	    if (c == '[')                                       { okb = 1; }
-	    else if ((c == '(') && (q < maxp) && (*q++ == '/')) { okb = 1; }
+	  case _START_OPTION_SYMBOL_0:
+	    if (c == '[') { okb = 1; }
 	    break;
-	  case START_REPEAT_SYMBOL:
-	    if (c == '{')                                       { okb = 1; }
-	    else if ((c == '(') && (q < maxp) && (*q++ == ':')) { okb = 1; }
+	  case _START_OPTION_SYMBOL_1:
+	    if ((c == '(') && (q < maxp) && (*q == '/')) { okb = 1; ++q; }
+	    break;
+	  case _START_REPEAT_SYMBOL_0:
+	    if (c == '{') { okb = 1; }
+	    break;
+	  case _START_REPEAT_SYMBOL_1:
+	    if ((c == '(') && (q < maxp) && (*q == ':')) { okb = 1; ++q; }
 	    break;
 	  case TERMINATOR_SYMBOL:
 	    if (c == ';' || c == '.') { okb = 1; }
@@ -1013,17 +820,12 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	  case HORIZONTAL_TABULATION_CHARACTER:
 	    if (c == '\t') { okb = 1; }
 	    break;
-	  case NEW_LINE:
-	    {
-	      tmplengthl = 0;
-	      q = p;
-	      while ((q < maxp) && (*q == '\r')) { ++tmplengthl; ++q; }
-	      if ((q < maxp) && (*q++ == '\n')) { ++linel; columnl = 1; okb = 1; ++tmplengthl; }
-	      if (okb == 1) {
-		/* Followed by a \n: look to remaining \r */
-		while ((q < maxp) && (*q == '\r')) { ++tmplengthl; ++q; }
-	      }
-	    }
+          case _CARRIAGE_RETURN:
+	    if (c == '\r') { okb = 1; }
+	    break;
+          case _LINE_FEED:
+	    if (c == '\n') { ++linel; columnl = 1; okb = 1; }
+	    break;
 	    break;
 	  case VERTICAL_TABULATION_CHARACTER:
 	    if (c == '\v') { okb = 1; }
@@ -1035,186 +837,105 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	    break;
 	  }
 	  if (okb) {
-	    /* Reject some character pairs terminals depending on context */
-	    lengthl = (int) (q - p);
-	    if (lengthl > 1) {
-	      if ((marpaEBNFp->terminalStringContexti != 0) || (marpaEBNFp->specialSequenceContexti > 0)) {
-		switch (symboli) {
-		case START_COMMENT_SYMBOL:
-		case END_COMMENT_SYMBOL:
-		case START_REPEAT_SYMBOL:
-		case END_REPEAT_SYMBOL:
-		case START_OPTION_SYMBOL:
-		case END_OPTION_SYMBOL:
-                  MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Rejected %s (terminal string or special sequence context)", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
-		  okb = 0;
-		  break;
-		default:
-		  break;
-		}
-	      }
-	    } else {
-              /* Reject ' ' if outside of a terminal string */
-              switch (symboli) {
-              case OTHER_CHARACTER:
-                if ((initialc == ' ') && (marpaEBNFp->terminalStringContexti == 0)) {
-                  MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Rejected %s (outside of terminal string context)", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
-                  okb = 0;
-                }
-                break;
-              case SPACE_CHARACTER:
-                if (marpaEBNFp->terminalStringContexti != 0) {
-                  MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Rejected %s (inside a terminal string context)", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
-                  okb = 0;
-                }
-                break;
-              default:
-                break;
-	      }
+            GENERICSTACK_PUSH_INT(alternativeStackp, symboli);
+            if (GENERICSTACK_ERROR(alternativeStackp)) {
+              MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_INT error, %s", strerror(errno));
+              goto err;
             }
-	  }
-	  if (okb) {
-	    alternativep[alternativeokl].symboli = symboli;
-	    alternativep[alternativeokl].lengthl = (int) (q - p);
-	    alternativeokl++;
+            if (lengthl <= 0) {
+              lengthl = q - p;
+            } else {
+              size_t thisLengthl = (size_t) (q - p);
+              if (thisLengthl > lengthl) {
+                lengthl = thisLengthl;
+              }
+            }
 	  }
 	}
       }
     }
 
-    lengthl = 0;
-    doCompleteb = 0;
+    if (GENERICSTACK_USED(alternativeStackp) > 0) {
+      size_t alternativel;
+      int    valuei;
 
-    if (alternativeokl > 0) {
-      int alternativePushei = 0;
-      /* Say we will have to call for lexeme completion */
-      doCompleteb = 1;
-      /* Sort by longest length */
-      qsort(alternativep, alternativeokl, sizeof(marpaEBNFAlternative_t), _marpaEBNF_alternativeCmpi);
-      /* Keep only the longests */
-      lengthl = alternativep[0].lengthl;
-      for (i = 0; i < alternativeokl; i++) {
-	if (alternativep[i].lengthl < lengthl) {
-	  break;
-	}
-	symboli = alternativep[i].symboli;
-	/* Our input stack is a copy of what was matched */
-	tokens = malloc(lengthl + 1);
-	if (tokens == NULL) {
-          MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
-	  goto err;
-	}
-	strncpy(tokens, p, lengthl);
-	tokens[lengthl] = '\0';
-	GENERICSTACK_PUSH_PTR(marpaEBNFp->inputStackp, tokens);
-        if (GENERICSTACK_ERROR(marpaEBNFp->inputStackp)) {
-          MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_PTR error, %s", strerror(errno));
+      /* Per definition, lengthl is set */
+
+      /* Our input stack is a copy of what was matched */
+      tokens = malloc(lengthl + 1);
+      if (tokens == NULL) {
+        MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
+        goto err;
+      }
+      strncpy(tokens, p, lengthl);
+      tokens[lengthl] = '\0';
+      GENERICSTACK_PUSH_PTR(marpaEBNFp->inputStackp, tokens);
+      if (GENERICSTACK_ERROR(marpaEBNFp->inputStackp)) {
+        MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_PTR error, %s", strerror(errno));
+        goto err;
+      }
+
+      valuei = GENERICSTACK_USED(marpaEBNFp->inputStackp) - 1;
+      for (alternativel = 0; alternativel < GENERICSTACK_USED(alternativeStackp); alternativel++) {
+	symboli = GENERICSTACK_GET_INT(alternativeStackp, alternativel);
+        if (GENERICSTACK_ERROR(alternativeStackp)) {
+          MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_GET_INT error, %s", strerror(errno));
           goto err;
         }
-        MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Accepted terminal %s of length %ld: \"%s\"", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), (unsigned long) lengthl, tokens);
-        MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Accepted terminal %s of length %ld: \"%s\"", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), (unsigned long) lengthl, tokens);
-        switch (symboli) {
-        case SPECIAL_SEQUENCE_SYMBOL:
-          if (marpaEBNFp->terminalStringContexti == 0) {
-            MARPAEBNF_DEBUG(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Special sequence context is starting");
-            marpaEBNFp->specialSequenceContexti = 1;
-          } else {
-            MARPAEBNF_DEBUG(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Special sequence context is ending");
-            marpaEBNFp->specialSequenceContexti = 0;
-          }
-          break;
-        case FIRST_QUOTE_SYMBOL:
-        case SECOND_QUOTE_SYMBOL:
-          if (marpaEBNFp->terminalStringContexti == 0) {
-            MARPAEBNF_DEBUG(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Terminal string context is starting");
-            marpaEBNFp->terminalStringContexti = 1;
-            marpaEBNFp->terminalStringContextSymboli = symboli;
-          } else {
-            if (marpaEBNFp->terminalStringContextSymboli == symboli) {
-              MARPAEBNF_DEBUG(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Terminal string context is ending");
-              marpaEBNFp->terminalStringContexti = 0;
-              marpaEBNFp->terminalStringContextSymboli = -1;
-            }
-          }
-          break;
-        default:
-          break;
+        /* Some lexemes are characters in the input stream. We know them in advance */
+        if ((lengthl > 1)                       &&
+            (symboli != START_COMMENT_SYMBOL)   &&
+            (symboli != END_COMMENT_SYMBOL)     &&
+            (symboli != _START_OPTION_SYMBOL_1) &&
+            (symboli != _END_OPTION_SYMBOL_1)   &&
+            (symboli != _START_REPEAT_SYMBOL_1) &&
+            (symboli != _END_REPEAT_SYMBOL_1)) {
+          continue;
         }
-        alternativePushei++;
-	/* Length is a number of earlemes from grammar point of view - we maintain internally the real pointer position */
-	if (marpaWrapperRecognizer_alternativeb(marpaWrapperRecognizerp, symboli, GENERICSTACK_USED(marpaEBNFp->inputStackp) - 1, 1) == 0) {
+        MARPAEBNF_DEBUGF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "[%d/%d] %s: length %d, %c%s%c%s",
+                         (int) (p - grammars),
+                         (int) (grammarLengthl - 1),
+                         _marpaEBNF_symbolDescription(marpaEBNFp, symboli),
+                         (int) lengthl,
+                         isprint((int) tokens[0]) ? tokens[0] : ' ',
+                         isprint((int) tokens[0]) ? "" : " (non printable)",
+                         (lengthl > 1) ? (isprint((int) tokens[1]) ? tokens[1] : ' ') : ' ',
+                         (lengthl > 1) ? (isprint((int) tokens[1]) ? "" : " (non printable)") : ""
+                         );
+	if (marpaWrapperRecognizer_alternativeb(marpaWrapperRecognizerp, symboli, valuei, 1) == 0) {
 	  goto err;
 	}
       }
-      if (alternativePushei > 1) {
-        MARPAEBNF_WARNF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "%d alternatives pushed", alternativePushei);
-      }
-    }
-
-    if (doCompleteb != 0) {
-      /* This will naturally fail if we pushed no alternative */
       if (marpaWrapperRecognizer_completeb(marpaWrapperRecognizerp) == 0) {
 	goto err;
       }
     } else {
-      /* This is an error if we are not at the end of the grammar */
+      /* This is an error if we are not at the end of the grammar and this is not a "space" */
       if (p < maxp) {
-        MARPAEBNF_ERROR(marpaEBNFp->marpaEBNFOption.genericLoggerp, "No terminal detected");
-	goto err;
+        if (! isspace(*p)) {
+          MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "[%d/%d] Current character: 0x%02x '%c'%s is not recognized",
+                           (int) (p - grammars),
+                           (int) (grammarLengthl - 1),
+                           (int) *p,
+                           isprint((int) *p) ? *p : ' ',
+                           isprint((int) *p) ? "" : " (non printable)");
+          goto err;
+        } else {
+          MARPAEBNF_DEBUGF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "[%d/%d] Discarded character: 0x%02x '%c'%s",
+                           (int) (p - grammars),
+                           (int) (grammarLengthl - 1),
+                           (int) c, isprint((int) c) ? c : ' ',
+                           isprint((int) c) ? "" : " (non printable)");
+          lengthl = 1;
+        }
       }
     }
 
     if (p < maxp) {
       /* Resume */   
-      MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Moving forward by %ld", lengthl);
       p += lengthl;
     } else {
       break;
-    }
-  }
-
-  /* Ask for the value. We require it to be explicitely unambigous. Since we have no rank, let's specify it. */
-  marpaWrapperValueOption.genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
-  marpaWrapperValueOption.highRankOnlyb  = 0;
-  marpaWrapperValueOption.orderByRankb   = 0;
-  marpaWrapperValueOption.ambiguousb     = 1;
-  marpaWrapperValueOption.nullb          = 0;
-  marpaWrapperValuep = marpaWrapperValue_newp(marpaWrapperRecognizerp, &marpaWrapperValueOption);
-  if (marpaWrapperValuep == NULL) {
-    goto err;
-  }
-
-  rci = 0;
-
-  /* Create and remember output stack */
-  GENERICSTACK_NEW(marpaEBNFp->outputStackp);
-  if (GENERICSTACK_ERROR(marpaEBNFp->outputStackp)) {
-    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_ERROR error, %s", strerror(errno));
-    goto err;
-  }
-
-  /* No need for a loop: we required the parse tree to be unambiguous */
-  while (1) {
-    short valueb;
-
-    MARPAEBNF_INFO(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Getting parse tree value");
-    valueb = marpaWrapperValue_valueb(marpaWrapperValuep,
-                                      marpaEBNFp,
-                                      _marpaEBNF_valueRuleCallback,
-                                      _marpaEBNF_valueSymbolCallback,
-                                      NULL);
-    if (valueb < 0) {
-      MARPAEBNF_INFO(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Parse tree value error");
-      break;
-    } else if (valueb == 0) {
-      MARPAEBNF_INFO(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Parse tree end");
-      break;
-    }
-
-    MARPAEBNF_INFO(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Parse tree value success");
-    if (++rci > 1) {
-      MARPAEBNF_ERROR(marpaEBNFp->marpaEBNFOption.genericLoggerp, "More than one value");
-      goto err;
     }
   }
 
@@ -1226,14 +947,9 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 
  done:
   _marpaEBNF_inputStackFree(marpaEBNFp);
-  _marpaEBNF_outputStackFree(marpaEBNFp);
 
-  if (alternativep != NULL) {
-    free(alternativep);
-  }
-  if (marpaWrapperValuep != NULL) {
-    marpaWrapperValue_freev(marpaWrapperValuep);
-  }
+  GENERICSTACK_FREE(alternativeStackp);
+
   if (marpaWrapperRecognizerp != NULL) {
     if (rci == 0) {
       /* Log current state of the recognizer */
@@ -1271,14 +987,13 @@ void marpaEBNF_freev(marpaEBNF_t *marpaEBNFp)
 static inline short _marpaEBNF_internalGrammarb(marpaEBNF_t *marpaEBNFp)
 /****************************************************************************/
 {
-  int i;
-  int symboli;
-  int rulei;
+  int                   i;
+  marpaEBNFSymbolEnum_t symboli;
+  int                   rulei;
 
   /* Declare all the symbols */
   for (i = 0; i < MARPAEBNF_LENGTH_ARRAY(marpaEBNFSymbolArray); i++) {
-    symboli = marpaWrapperGrammar_newSymboli(marpaEBNFp->marpaWrapperGrammarp,
-					     &(marpaEBNFSymbolArray[i].option));
+    symboli = marpaWrapperGrammar_newSymboli(marpaEBNFp->marpaWrapperGrammarp, NULL);
     /* We take advantage of the fact that symbols always start at 0 with marpa */
     if (symboli != marpaEBNFSymbolArray[i].symboli) {
       goto err;
@@ -1318,170 +1033,16 @@ static inline char *_marpaEBNF_symbolDescription(void *userDatavp, int symboli)
 }
 
 /****************************************************************************/
-static inline int _marpaEBNF_alternativeCmpi(const void *p1, const void *p2)
-/****************************************************************************/
-{
-  marpaEBNFAlternative_t *p = (marpaEBNFAlternative_t *) p1;
-  marpaEBNFAlternative_t *q = (marpaEBNFAlternative_t *) p2;
-
-  return (p->lengthl < q->lengthl) ? 1 : ((p->lengthl == q->lengthl) ? 0 : -1);
-}
-
-/****************************************************************************/
-static inline short _marpaEBNF_valueRuleCallback(void *userDatavp, int rulei, int arg0i, int argni, int resulti)
-/****************************************************************************/
-{
-  marpaEBNF_t       *marpaEBNFp = (marpaEBNF_t *) userDatavp;
-  marpaEBNFRule_t   *rulep      = &(marpaEBNFp->ruleArrayp[rulei]);
-  marpaEBNFSymbol_t *lhsp       = &(marpaEBNFp->symbolArrayp[rulep->lhsSymboli]);
-  size_t             i;
-
-  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-    if (rulep->rhsSymboll > 0) {
-      if (rulep->rhsSymboll == 1) {
-        if (marpaEBNFp->ruleArrayp[rulei].option.sequenceb != 0) {
-          MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s%s ;", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions, (marpaEBNFp->ruleArrayp[rulei].option.minimumi == 0) ? "*" : "+");
-        } else {
-          MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s ;", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions);
-        }
-      } else {
-	MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s = %s", rulei, lhsp->descriptions, marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[0]].descriptions);
-	for (i = 1; i < rulep->rhsSymboll; i++) {
-	  if (i == rulep->rhsSymboll - 1) {
-	    MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "\t%s ;", marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[i]].descriptions);
-	  } else {
-	    MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "\t%s", marpaEBNFp->symbolArrayp[rulep->rhsSymbolip[i]].descriptions);
-	  }
-	}
-      }
-    } else {
-      MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Rule No %2d value callback: %s ;", rulei, lhsp->descriptions);
-    }
-  }
-
-  return 1;
-}
-
-/****************************************************************************/
-static inline short _marpaEBNF_valueSymbolCallback(void *userDatavp, int symboli, int argi, int resulti)
-/****************************************************************************/
-{
-  marpaEBNF_t       *marpaEBNFp  = (marpaEBNF_t *) userDatavp;
-  marpaEBNFSymbol_t *symbolp     = &(marpaEBNFp->symbolArrayp[symboli]);
-  char              *inputs;
-  char              *outputs;
-
-  if (! GENERICSTACK_IS_PTR(marpaEBNFp->inputStackp, (size_t) argi)) {
-    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Not a pointer at inputStack indice %d", argi);
-    goto err;
-  }
-
-  inputs = GENERICSTACK_GET_PTR(marpaEBNFp->inputStackp, (size_t) argi);
-  if (inputs == NULL) {
-    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Null pointer at inputStack indice %d", argi);
-    goto err;
-  }
-
-  if (marpaEBNFp->marpaEBNFOption.genericLoggerp != NULL) {
-    if (inputs != NULL) {
-      MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "  Symbol No %2d value callback: %s, input: \"%s\"", symboli, symbolp->descriptions, inputs);
-    } else {
-      MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "  Symbol No %2d value callback: %s, input: NULL", symboli, symbolp->descriptions);
-    }
-  }
-
-  outputs = strdup(inputs);
-  if (outputs == NULL) {
-    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "strdup error, %s", strerror(errno));
-    goto err;
-  }
-  if (_marpaEBNF_outputStackFreeItem(marpaEBNFp, argi) == 0) {
-    goto err;
-  }
-  GENERICSTACK_SET_PTR(marpaEBNFp->outputStackp, outputs, (size_t) argi);
-  if (GENERICSTACK_ERROR(marpaEBNFp->outputStackp)) {
-    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_SET_PTR error, %s", strerror(errno));
-    goto err;
-  }
-
-  return 1;
-
- err:
-  return 0;
-}
-
-/****************************************************************************/
-static inline void _marpaEBNF_outputStackFree(marpaEBNF_t *marpaEBNFp)
-/****************************************************************************/
-{
-  if (marpaEBNFp->outputStackp != NULL) {
-    size_t i;
-    for (i = 0; i < GENERICSTACK_USED(marpaEBNFp->outputStackp); i++) {
-      _marpaEBNF_outputStackFreeItem(marpaEBNFp, i);
-    }
-    GENERICSTACK_FREE(marpaEBNFp->outputStackp);
-  }
-}
-
-/****************************************************************************/
-static inline short _marpaEBNF_outputStackFreeItem(marpaEBNF_t *marpaEBNFp, int argi)
-/****************************************************************************/
-{
-  if (marpaEBNFp->outputStackp != NULL) {
-    if (GENERICSTACK_IS_PTR(marpaEBNFp->outputStackp, (size_t) argi)) {
-      void *p = GENERICSTACK_GET_PTR(marpaEBNFp->outputStackp, (size_t) argi);
-      /* Set to NA before doing the free */
-      GENERICSTACK_SET_NA(marpaEBNFp->outputStackp, (size_t) argi);
-      if (GENERICSTACK_ERROR(marpaEBNFp->outputStackp)) {
-        MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Error setting NA type to output stack at indice %d, %s", argi, strerror(errno));
-        goto err;
-      }
-      if (p != NULL) {
-        free(p);
-      }
-    }
-  }
-
-  return 1;
-
- err:
-  return 0;
-}
-
-/****************************************************************************/
 static inline void _marpaEBNF_inputStackFree(marpaEBNF_t *marpaEBNFp)
 /****************************************************************************/
 {
   if (marpaEBNFp->inputStackp != NULL) {
-    size_t i;
-    for (i = 0; i < GENERICSTACK_USED(marpaEBNFp->inputStackp); i++) {
-      _marpaEBNF_inputStackFreeItem(marpaEBNFp, i);
-    }
-    GENERICSTACK_FREE(marpaEBNFp->inputStackp);
-  }
-}
-
-/****************************************************************************/
-static inline short _marpaEBNF_inputStackFreeItem(marpaEBNF_t *marpaEBNFp, int argi)
-/****************************************************************************/
-{
-  if (marpaEBNFp->inputStackp != NULL) {
-    if (GENERICSTACK_IS_PTR(marpaEBNFp->inputStackp, (size_t) argi)) {
-      void *p = GENERICSTACK_GET_PTR(marpaEBNFp->inputStackp, (size_t) argi);
-      /* Set to NA before doing the free */
-      GENERICSTACK_SET_NA(marpaEBNFp->inputStackp, (size_t) argi);
-      if (GENERICSTACK_ERROR(marpaEBNFp->inputStackp)) {
-        MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "Error setting NA type to input stack at indice %d, %s", argi, strerror(errno));
-        goto err;
-      }
-      if (p != NULL) {
-        free(p);
+    while (GENERICSTACK_USED(marpaEBNFp->inputStackp) > 0) {
+      char *tokens = GENERICSTACK_POP_PTR(marpaEBNFp->inputStackp);
+      if (tokens != NULL) {
+        free(tokens);
       }
     }
   }
-
-  return 1;
-
- err:
-  return 0;
 }
+
