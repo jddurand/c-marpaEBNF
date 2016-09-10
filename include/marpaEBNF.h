@@ -1,8 +1,8 @@
 #ifndef MARPAEBNF_H
 #define MARPAEBNF_H
 
+#include <genericLogger.h>
 #include "marpaWrapper.h"
-#include "genericLogger.h"
 #include "marpaEBNF/export.h"
 
 typedef struct marpaEBNFOption {
