@@ -94,6 +94,8 @@ typedef enum marpaEBNFSymbolEnum {
   _GAP_SYMBOL_UNIT,
   _GAP_SYMBOL_UNIT_MANY,
 
+  _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER,
+
   _META_IDENTIFIER_CHARACTER_ANY,
 
   _SPECIAL_SEQUENCE_CHARACTER_ANY,
@@ -113,6 +115,7 @@ typedef struct marpaEBNFSymbol {
 } marpaEBNFSymbol_t;
 
 typedef struct marpaEBNFRule {
+  short                             exceptionb;
   marpaWrapperGrammarRuleOption_t   option;
   int                               lhsSymboli;
   size_t                            rhsSymboll;
@@ -193,37 +196,22 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
   {_END_OPTION_SYMBOL_1           , "<end option symbol 1>" },
 
   /*
-    Note: handling of the exception with standard BNF
-    *
-    * Given a rule
-    *   X = A - B
-    *
-    * We rewrite it as:
-    *
-    *   X = A [XOK_PREDICTION_EVENT] XOK
-    *
-    * where _XOK is an internal lexeme. When XOK_PREDICTION_EVENT, we trigger a sub-rule where B is the start symbol.
-    *
-    *  :start = B
-    * We associate a completion event on
-    * We remember only X = A in the grammar, and remember in the rules array that X = A is not possible if A matches B.
-    * It is better to remember that in the ASF tree rather than in the grammar, because saying X = A | B in the grammar
-    * would introduce too many earley items.
-    */
+   * ------------------------------------------
+   * Note: handling of the exception with Marpa
+   * ------------------------------------------
+   *
+   * Given a rule X = A - B, we rewrite it as X = A, and remember that B is not allowed when traversing the ASF.
+   * B can be composite and must contain only RHS's of X.
+   *
+   * ------------------------------------------
+   * Note: ' ' character
+   * ------------------------------------------
+   *
+   * It can happen in two cases: <space character> and <other character>. Marpa is handling this ambiguity.
+   *
   /* ---------------- */
   /* Internal symbols */
   /* ---------------- */
-  /*
-   * gap free symbol = terminal character - (first quote symbol | second quote symbol)
-   *                   | terminal string
-   *
-   * is revisited to:
-   *
-   * gap free symbol         = terminal character
-   *                         | terminal string
-   *
-   * and we will remember that rule <gap free symbol> ::= <terminal character> is not allowed if it <terminal character> matches <first quote symbol> or <second quote symbol>
-   */
   /*
    * terminal string = first quote symbol, first terminal character, {first terminal character}, first quote symbol
    *                 | second quote symbol, second terminal character, {second terminal character}, second quote symbol
@@ -243,47 +231,14 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
   {_FIRST_TERMINAL_CHARACTER_MANY,  "<first terminal character many>" },
   {_SECOND_TERMINAL_CHARACTER_MANY, "<second terminal character many>" },
   /*
-   * first terminal character = terminal character - first quote symbol
-   *
-   * is revisited to:
-   *
-   * first terminal character = terminal character
-   *
-   * and we remember that this rule is not possible if terminal character matches first quote symbol
-   *
-   */
-  /*
-   * second terminal character = terminal character - second quote symbol
-   *
-   * is revisited to:
-   *
-   * second terminal character = terminal character
-   *
-   * and we remember that this rule is not possible if terminal character matches second quote symbol
-   *
-   */
-  /*
    * syntax = {gap separator}, gap free symbol, {gap separator}, {gap free symbol, {gap separator}}
    *
-   * could revisited to:
+   * is revisited to:
    *
    * <gap separator any> = <gap separator>*
    * <gap symbol unit> = <gap free symbol> <gap separator any>
    * <gap symbol unit many> = <gap free symbol unit>+
    * <syntax> = <gap separator any> <gap symbol unit many>
-   *
-   * but take care, there is an ambiguity:
-   * <gap separator> is a non-printing character, in particular space ' '
-   * <gap free symbol> is a <terminal character> minus the quotes or a <terminal string>. But a <terminal character> can be an <other character>, itself being potentially a ' ' character
-   *
-   * Now: EBNF says that a non printing character, i.e. <gap separator>
-   * has no formal effect on a syntax if the character is outside a <terminal string>,
-   * or pair of characters forming a single <terminal character>.
-   *
-   * Since we manage <terminal characters> as a single entity, this is resumed to:
-   * the ' ' character must be an <other character> if we are in a <terminal string> context.
-   * the ' ' character must be a <space character> if we are not in a <terminal string> context.
-   *
    *
    */
   /* ----------------------------------------------
@@ -309,15 +264,15 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    * is revisited to:
    *
-   * commentless symbol = terminal character
+   * commentless symbol terminal character = terminal character
+   * commentless symbol = commentless symbol terminal character
    *                     | meta identifier
    *                     | integer
    *                     | terminal string
    *                     | special sequence
    *
-   * and will remember that <commentless symbol> ::= <terminal character> is not possible if
-   * <terminal character> matches <letter>|<decimal digit>|<first quote symbol>|etc...
    */
+  {_COMMENTLESS_SYMBOL_TERMINAL_CHARACTER , "<commentless symbol terminal character>" },
   /*
    * integer = decimal digit, {decimal digit}
    *
@@ -421,132 +376,147 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
 
 static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   /* ------------------------------------------------------------------------------------------------------------------------------- */
-  /*{ marpaWrapperGrammarRuleOption},         lhsSymboli,      rhsSymboll, { rhsSymbolip }                                           */
-  /*  ranki
-        nullRanksHighb
-            sequenceb
-                          separatorSymboli
-                              properb
-                                 minimumi
-  */
+  /* Exceptionb, { marpaWrapperGrammarRuleOption},         lhsSymboli,      rhsSymboll, { rhsSymbolip }                              */
+  /*               ranki
+                   ^  nullRanksHighb
+                   |  ^  sequenceb
+                   |  |  ^              separatorSymboli
+                   |  |  |              ^  properb
+                   |  |  |              |  ^  minimumi
+  *                |  |  |              |  |  ^
+  *                |  |  |              |  |  |
   /* ------------------------------------------------------------------------------------------------------------------------------- */
-  { { 0, 0, 0,            -1, 0, 0 }, _START,                           1, { SYNTAX } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 },             _START,               1, { SYNTAX } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { DECIMAL_DIGIT } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { CONCATENATE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { DEFINING_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { DEFINITION_SEPARATOR_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { END_COMMENT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { END_GROUP_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { END_OPTION_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { END_REPEAT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { EXCEPT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { FIRST_QUOTE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { REPETITION_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { SECOND_QUOTE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { SPECIAL_SEQUENCE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_COMMENT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_GROUP_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_OPTION_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_REPEAT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { TERMINATOR_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { OTHER_CHARACTER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { DECIMAL_DIGIT } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { CONCATENATE_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { DEFINING_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { DEFINITION_SEPARATOR_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { END_COMMENT_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { END_GROUP_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { END_OPTION_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { END_REPEAT_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { EXCEPT_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { FIRST_QUOTE_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { REPETITION_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { SECOND_QUOTE_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { SPECIAL_SEQUENCE_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_COMMENT_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_GROUP_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_OPTION_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_REPEAT_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { TERMINATOR_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { OTHER_CHARACTER } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  1, { TERMINAL_STRING } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  1, { TERMINAL_CHARACTER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  1, { TERMINAL_STRING } },
+  { 1,           { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  2, { FIRST_QUOTE_SYMBOL } }, /* Exception */
+  { 1,           { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  2, { SECOND_QUOTE_SYMBOL } }, /* Exception */
 
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { FIRST_QUOTE_SYMBOL, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { SECOND_QUOTE_SYMBOL, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { FIRST_QUOTE_SYMBOL, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { SECOND_QUOTE_SYMBOL, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, NEW_LINE,                         3, { _CARRIAGE_RETURN_ANY, _LINE_FEED, _CARRIAGE_RETURN_ANY } },
-  { { 0, 0, 1,            -1, 0, 0 }, _CARRIAGE_RETURN_ANY,             1, { _CARRIAGE_RETURN } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, NEW_LINE,                         3, { _CARRIAGE_RETURN_ANY, _LINE_FEED, _CARRIAGE_RETURN_ANY } },
+  { 0,           { 0, 0, 1,            -1, 0, 0 }, _CARRIAGE_RETURN_ANY,             1, { _CARRIAGE_RETURN } },
 
 
-  { { 0, 0, 0,            -1, 0, 0 }, START_REPEAT_SYMBOL,              1, { _START_REPEAT_SYMBOL_0 } },
-  { { 0, 0, 0,            -1, 0, 0 }, START_REPEAT_SYMBOL,              1, { _START_REPEAT_SYMBOL_1 } },
-  { { 0, 0, 0,            -1, 0, 0 }, END_REPEAT_SYMBOL,                1, { _END_REPEAT_SYMBOL_0 } },
-  { { 0, 0, 0,            -1, 0, 0 }, END_REPEAT_SYMBOL,                1, { _END_REPEAT_SYMBOL_1 } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, START_REPEAT_SYMBOL,              1, { _START_REPEAT_SYMBOL_0 } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, START_REPEAT_SYMBOL,              1, { _START_REPEAT_SYMBOL_1 } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, END_REPEAT_SYMBOL,                1, { _END_REPEAT_SYMBOL_0 } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, END_REPEAT_SYMBOL,                1, { _END_REPEAT_SYMBOL_1 } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, START_OPTION_SYMBOL,              1, { _START_OPTION_SYMBOL_0 } },
-  { { 0, 0, 0,            -1, 0, 0 }, START_OPTION_SYMBOL,              1, { _START_OPTION_SYMBOL_1 } },
-  { { 0, 0, 0,            -1, 0, 0 }, END_OPTION_SYMBOL,                1, { _END_OPTION_SYMBOL_0 } },
-  { { 0, 0, 0,            -1, 0, 0 }, END_OPTION_SYMBOL,                1, { _END_OPTION_SYMBOL_1 } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, START_OPTION_SYMBOL,              1, { _START_OPTION_SYMBOL_0 } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, START_OPTION_SYMBOL,              1, { _START_OPTION_SYMBOL_1 } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, END_OPTION_SYMBOL,                1, { _END_OPTION_SYMBOL_0 } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, END_OPTION_SYMBOL,                1, { _END_OPTION_SYMBOL_1 } },
 
-  { { 0, 0, 1,            -1, 0, 1 }, _FIRST_TERMINAL_CHARACTER_MANY,   1, { FIRST_TERMINAL_CHARACTER } },
-  { { 0, 0, 1,            -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY,  1, { SECOND_TERMINAL_CHARACTER } },
+  { 0,           { 0, 0, 1,            -1, 0, 1 }, _FIRST_TERMINAL_CHARACTER_MANY,   1, { FIRST_TERMINAL_CHARACTER } },
+  { 0,           { 0, 0, 1,            -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY,  1, { SECOND_TERMINAL_CHARACTER } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         1, { TERMINAL_CHARACTER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         1, { TERMINAL_CHARACTER } },
+  { 1,           { 0, 0, 0,            -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         1, { FIRST_QUOTE_SYMBOL } }, /* Exception */
 
-  { { 0, 0, 0,            -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,        1, { TERMINAL_CHARACTER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,        1, { TERMINAL_CHARACTER } },
+  { 1,           { 0, 0, 0,            -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,        1, { SECOND_QUOTE_SYMBOL } }, /* Exception */
 
-  { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { SPACE_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { HORIZONTAL_TABULATION_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { NEW_LINE } },
-  { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { VERTICAL_TABULATION_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { FORM_FEED } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { SPACE_CHARACTER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { HORIZONTAL_TABULATION_CHARACTER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { NEW_LINE } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { VERTICAL_TABULATION_CHARACTER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { FORM_FEED } },
 
-  { { 0, 0, 1,            -1, 0, 0 }, _GAP_SEPARATOR_ANY,               1, { GAP_SEPARATOR } },
-  { { 0, 0, 0,            -1, 0, 0 }, _GAP_SYMBOL_UNIT,                 2, { GAP_FREE_SYMBOL, _GAP_SEPARATOR_ANY } },
-  { { 0, 0, 1,            -1, 0, 1 }, _GAP_SYMBOL_UNIT_MANY,            1, { _GAP_SYMBOL_UNIT } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _GAP_SEPARATOR_ANY, _GAP_SYMBOL_UNIT_MANY } },
+  { 0,           { 0, 0, 1,            -1, 0, 0 }, _GAP_SEPARATOR_ANY,               1, { GAP_SEPARATOR } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, _GAP_SYMBOL_UNIT,                 2, { GAP_FREE_SYMBOL, _GAP_SEPARATOR_ANY } },
+  { 0,           { 0, 0, 1,            -1, 0, 1 }, _GAP_SYMBOL_UNIT_MANY,            1, { _GAP_SYMBOL_UNIT } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _GAP_SEPARATOR_ANY, _GAP_SYMBOL_UNIT_MANY } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { META_IDENTIFIER } },
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { INTEGER } },
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { TERMINAL_STRING } },
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { SPECIAL_SEQUENCE } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER, 1, { TERMINAL_CHARACTER } },
+  { 1,           { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER, 1, { LETTER } }, /* Exception */
+  { 1,           { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER, 1, { DECIMAL_DIGIT } }, /* Exception */
+  { 1,           { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER, 1, { FIRST_QUOTE_SYMBOL } }, /* Exception */
+  { 1,           { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER, 1, { SECOND_QUOTE_SYMBOL } }, /* Exception */
+  { 1,           { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER, 1, { START_COMMENT_SYMBOL } }, /* Exception */
+  { 1,           { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER, 1, { END_COMMENT_SYMBOL } }, /* Exception */
+  { 1,           { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER, 1, { SPECIAL_SEQUENCE_SYMBOL } }, /* Exception */
+  { 1,           { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER, 1, { OTHER_CHARACTER } }, /* Exception */
 
-  { { 0, 0, 1,            -1, 0, 1 }, INTEGER,                          1, { DECIMAL_DIGIT } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { TERMINAL_CHARACTER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { META_IDENTIFIER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { INTEGER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { TERMINAL_STRING } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { SPECIAL_SEQUENCE } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER,                  2, { LETTER, _META_IDENTIFIER_CHARACTER_ANY } },
-  { { 0, 0, 1,            -1, 0, 0 }, _META_IDENTIFIER_CHARACTER_ANY,   1, { META_IDENTIFIER_CHARACTER } },
+  { 0,           { 0, 0, 1,            -1, 0, 1 }, INTEGER,                          1, { DECIMAL_DIGIT } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER_CHARACTER,        1, { LETTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER_CHARACTER,        1, { DECIMAL_DIGIT } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER,                  2, { LETTER, _META_IDENTIFIER_CHARACTER_ANY } },
+  { 0,           { 0, 0, 1,            -1, 0, 0 }, _META_IDENTIFIER_CHARACTER_ANY,   1, { META_IDENTIFIER_CHARACTER } },
 
-  { { 0, 0, 1,            -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ANY,  1, { SPECIAL_SEQUENCE_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE,                 3, { SPECIAL_SEQUENCE_SYMBOL, _SPECIAL_SEQUENCE_CHARACTER_ANY, SPECIAL_SEQUENCE_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER_CHARACTER,        1, { LETTER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, META_IDENTIFIER_CHARACTER,        1, { DECIMAL_DIGIT } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE_CHARACTER,       1, { TERMINAL_CHARACTER } },
+  { 0,           { 0, 0, 1,            -1, 0, 0 }, _SPECIAL_SEQUENCE_CHARACTER_ANY,  1, { SPECIAL_SEQUENCE_CHARACTER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE,                 3, { SPECIAL_SEQUENCE_SYMBOL, _SPECIAL_SEQUENCE_CHARACTER_ANY, SPECIAL_SEQUENCE_SYMBOL } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { BRACKETED_TEXTUAL_COMMENT } },
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { OTHER_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { COMMENTLESS_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SPECIAL_SEQUENCE_CHARACTER,       1, { TERMINAL_CHARACTER } },
 
-  { { 0, 0, 1,            -1, 0, 0 }, _COMMENT_SYMBOL_ANY,              1, { COMMENT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, BRACKETED_TEXTUAL_COMMENT,        3, { START_COMMENT_SYMBOL, _COMMENT_SYMBOL_ANY, END_COMMENT_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { BRACKETED_TEXTUAL_COMMENT } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { OTHER_CHARACTER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, COMMENT_SYMBOL,                   1, { COMMENTLESS_SYMBOL } },
 
-  { { 0, 0, 1,            -1, 0, 0 }, _BRACKETED_TEXTUAL_COMMENT_ANY,   1, { BRACKETED_TEXTUAL_COMMENT } },
-  { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_UNIT,         2, { COMMENTLESS_SYMBOL, _BRACKETED_TEXTUAL_COMMENT_ANY } },
-  { { 0, 0, 1,            -1, 0, 1 }, _COMMENTLESS_SYMBOL_UNIT_MANY,    1, { _COMMENTLESS_SYMBOL_UNIT } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _BRACKETED_TEXTUAL_COMMENT_ANY, _COMMENTLESS_SYMBOL_UNIT_MANY } },
+  { 0,           { 0, 0, 1,            -1, 0, 0 }, _COMMENT_SYMBOL_ANY,              1, { COMMENT_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, BRACKETED_TEXTUAL_COMMENT,        3, { START_COMMENT_SYMBOL, _COMMENT_SYMBOL_ANY, END_COMMENT_SYMBOL } },
 
-  { { 1, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { SYNTAX_RULE, SYNTAX } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           1, { SYNTAX_RULE } },
+  { 0,           { 0, 0, 1,            -1, 0, 0 }, _BRACKETED_TEXTUAL_COMMENT_ANY,   1, { BRACKETED_TEXTUAL_COMMENT } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_UNIT,         2, { COMMENTLESS_SYMBOL, _BRACKETED_TEXTUAL_COMMENT_ANY } },
+  { 0,           { 0, 0, 1,            -1, 0, 1 }, _COMMENTLESS_SYMBOL_UNIT_MANY,    1, { _COMMENTLESS_SYMBOL_UNIT } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _BRACKETED_TEXTUAL_COMMENT_ANY, _COMMENTLESS_SYMBOL_UNIT_MANY } },
 
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTAX_RULE,                      4, { META_IDENTIFIER, DEFINING_SYMBOL, DEFINITIONS_LIST, TERMINATOR_SYMBOL } },
+  { 0,           { 1, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { SYNTAX_RULE, SYNTAX } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           1, { SYNTAX_RULE } },
 
-  { { 0, 0, 1, DEFINITION_SEPARATOR_SYMBOL, 0, 1 }, _DEFINITIONS_SEQUENCE, 1, { SINGLE_DEFINITION } },
-  { { 0, 0, 0,            -1, 0, 0 }, DEFINITIONS_LIST,                 1, { _DEFINITIONS_SEQUENCE } },
-  { { 0, 0, 0,            -1, 0, 0 }, DEFINITIONS_LIST,                 1, { EMPTY_SEQUENCE } },
-  { { 0, 0, 1, CONCATENATE_SYMBOL,          0, 1 }, SINGLE_DEFINITION,            1, { SYNTACTIC_TERM } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_TERM,                   1, { SYNTACTIC_FACTOR } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_TERM,                   3, { SYNTACTIC_FACTOR, EXCEPT_SYMBOL, SYNTACTIC_EXCEPTION } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_FACTOR,                 3, { INTEGER, REPETITION_SYMBOL, SYNTACTIC_PRIMARY } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_FACTOR,                 1, { SYNTACTIC_PRIMARY } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { OPTIONAL_SEQUENCE } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { REPEATED_SEQUENCE } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { GROUPED_SEQUENCE } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { META_IDENTIFIER } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { TERMINAL_STRING } },
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { SPECIAL_SEQUENCE } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTAX_RULE,                      4, { META_IDENTIFIER, DEFINING_SYMBOL, DEFINITIONS_LIST, TERMINATOR_SYMBOL } },
+
+  { 0,           { 0, 0, 1, DEFINITION_SEPARATOR_SYMBOL, 0, 1 }, _DEFINITIONS_SEQUENCE, 1, { SINGLE_DEFINITION } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, DEFINITIONS_LIST,                 1, { _DEFINITIONS_SEQUENCE } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, DEFINITIONS_LIST,                 1, { EMPTY_SEQUENCE } },
+  { 0,           { 0, 0, 1, CONCATENATE_SYMBOL,          0, 1 }, SINGLE_DEFINITION,            1, { SYNTACTIC_TERM } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_TERM,                   1, { SYNTACTIC_FACTOR } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_TERM,                   3, { SYNTACTIC_FACTOR, EXCEPT_SYMBOL, SYNTACTIC_EXCEPTION } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_FACTOR,                 3, { INTEGER, REPETITION_SYMBOL, SYNTACTIC_PRIMARY } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_FACTOR,                 1, { SYNTACTIC_PRIMARY } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { OPTIONAL_SEQUENCE } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { REPEATED_SEQUENCE } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { GROUPED_SEQUENCE } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { META_IDENTIFIER } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { TERMINAL_STRING } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { SPECIAL_SEQUENCE } },
   /*
-  { { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { EMPTY_SEQUENCE } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, SYNTACTIC_PRIMARY,                1, { EMPTY_SEQUENCE } },
   */
-  { { 0, 0, 0,            -1, 0, 0 }, OPTIONAL_SEQUENCE,                3, { START_OPTION_SYMBOL, DEFINITIONS_LIST, END_OPTION_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, REPEATED_SEQUENCE,                3, { START_REPEAT_SYMBOL, DEFINITIONS_LIST, END_REPEAT_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, GROUPED_SEQUENCE,                 3, { START_GROUP_SYMBOL, DEFINITIONS_LIST, END_GROUP_SYMBOL } },
-  { { 0, 0, 0,            -1, 0, 0 }, EMPTY_SEQUENCE,                   0, { -1 } }, /* Some compilers like cl does not like an empty [] */
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, OPTIONAL_SEQUENCE,                3, { START_OPTION_SYMBOL, DEFINITIONS_LIST, END_OPTION_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, REPEATED_SEQUENCE,                3, { START_REPEAT_SYMBOL, DEFINITIONS_LIST, END_REPEAT_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, GROUPED_SEQUENCE,                 3, { START_GROUP_SYMBOL, DEFINITIONS_LIST, END_GROUP_SYMBOL } },
+  { 0,           { 0, 0, 0,            -1, 0, 0 }, EMPTY_SEQUENCE,                   0, { -1 } }, /* Some compilers like cl does not like an empty [] */
 };
 
 /* Internally, EBNF is nothing else but an instance of marpaWrapperGrammar_t along */
@@ -557,16 +527,13 @@ struct marpaEBNF {
   marpaWrapperGrammar_t *marpaWrapperGrammarp; /* Internal grammar */
   marpaEBNFSymbol_t     *symbolArrayp;         /* Copy of marpaEBNFSymbolArray */
   marpaEBNFRule_t       *ruleArrayp;           /* Copy of marpaEBNFRuleArray */
-  /* EBNF is not ambiguous if we take care of some context: <terminal string> and <special sequence> */
-  int                    terminalStringContexti;
-  marpaEBNFSymbolEnum_t  terminalStringContextSymboli;  /* Symbol id that instanciated the string context */
-  int                    specialSequenceContexti;
   genericStack_t        *inputStackp;
   genericStack_t        *outputStackp;
 };
 
-static inline short _marpaEBNF_internalGrammarb(marpaEBNF_t *marpaEBNFp);
-static inline char *_marpaEBNF_symbolDescription(void *userDatavp, int symboli);
+static inline short  _marpaEBNF_internalGrammarb(marpaEBNF_t *marpaEBNFp);
+static inline char  *_marpaEBNF_symbolDescription(void *userDatavp, int symboli);
+static inline short  _marpaEBNF_memcmpb(marpaEBNF_t *marpaEBNFp, marpaEBNFSymbolEnum_t symboli, void *p, size_t maxLengthl, void *refp, size_t refLengthl);
 
 static marpaEBNFOption_t marpaEBNFOptionDefault = {
   NULL /* genericLoggerp */
@@ -580,8 +547,8 @@ marpaEBNF_t *marpaEBNF_newp(marpaEBNFOption_t *marpaEBNFOptionp)
 {
   marpaEBNF_t                *marpaEBNFp;
   marpaWrapperGrammarOption_t marpaWrapperGrammarOption;
-  size_t                      marpaEBNFSymbolArraySizel = MARPAEBNF_LENGTH_ARRAY(marpaEBNFSymbolArray) * sizeof(marpaEBNFSymbol_t);
-  size_t                      marpaEBNFRuleArraySizel = MARPAEBNF_LENGTH_ARRAY(marpaEBNFRuleArray) * sizeof(marpaEBNFRule_t);
+  const static size_t         marpaEBNFSymbolArraySizel = MARPAEBNF_LENGTH_ARRAY(marpaEBNFSymbolArray) * sizeof(marpaEBNFSymbol_t);
+  const static size_t         marpaEBNFRuleArraySizel = MARPAEBNF_LENGTH_ARRAY(marpaEBNFRuleArray) * sizeof(marpaEBNFRule_t);
 
   if (marpaEBNFOptionp == NULL) {
     marpaEBNFOptionp = &marpaEBNFOptionDefault;
@@ -646,6 +613,8 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   int                            columnl                 = 1;
   marpaWrapperRecognizer_t      *marpaWrapperRecognizerp = NULL;
   genericStack_t                *alternativeStackp       = NULL;
+  int                            posi                    = 0;
+  const static size_t            marpaEBNFSymbolArraySizel = MARPAEBNF_LENGTH_ARRAY(marpaEBNFSymbolArray) * sizeof(marpaEBNFSymbol_t);
 
   marpaWrapperRecognizerOption_t marpaWrapperRecognizerOption;
   size_t                         i;
@@ -653,12 +622,13 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   int                           *expectedSymbolArrayp;
   marpaEBNFSymbolEnum_t          symboli;
   marpaEBNFSymbol_t             *marpaEBNFSymbolp;
-  char                           c;
-  char                          *p, *q;
+  char                           c1;
+  char                           c2;
+  char                          *p;
+  char                          *q;
   char                          *maxp;
   size_t                         grammarLengthl;
   short                          okb;
-  char                          *tokens;
   size_t                         lengthl;
   short                          rci;
 
@@ -674,6 +644,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   /* An ISO EBNF grammar is always expressed in the 7-bit ASCII range; that is entirely */
   /* covered by the basic C default character set. We just have to take care to always  */
   /* compare with a char, not an integer value.                                         */
+  /* We assume a grammar always first in a single string within memory.                 */
   grammarLengthl = strlen(grammars);
 
   /* Create input stack */
@@ -698,13 +669,14 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   }
 
   /* Loop until it is consumed or an error */
-  p = grammars;
+  p = q = grammars;
+  c2 = p[0];         /* Ultimately, this will be '\0' */
   maxp = p + grammarLengthl;
   while (p <= maxp) {
 
     /* Initialize alternatives stack */
     GENERICSTACK_FREE(alternativeStackp);
-    GENERICSTACK_NEW(alternativeStackp);
+    GENERICSTACK_NEW_SIZED(alternativeStackp, marpaEBNFSymbolArraySizel);
     if (GENERICSTACK_ERROR(alternativeStackp)) {
       MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_NEW error, %s", strerror(errno));
       goto err;
@@ -714,167 +686,177 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
     if (marpaWrapperRecognizer_expectedb(marpaWrapperRecognizerp, &nSymboll, &expectedSymbolArrayp) == 0) {
       goto err;
     }
+
+    lengthl = 0;
     if (nSymboll > 0) {
 
+      okb = 0;
+
       if (p < maxp) {
-        c = *p;
-        q = p + 1;
-        lengthl = 0;
+        c1 = c2;
+	c2 = *++q;
 
 #ifndef MARPAEBNF_NTRACE
-        {
-          char tmps[30];
-          strncpy(tmps, p, sizeof(tmps) - 1);
-          tmps[sizeof(tmps) - 1] = '\0';
-          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "[%d/%d] %s", (int) (p - grammars), (int) (grammarLengthl - 1), tmps);
-        }
+	MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "[%d/%d] Current characters: 0x%02x 0x%02x \"%c%c\"",
+			 (int) (p - grammars),
+			 (int) (grammarLengthl - 1),
+			 (int) c1,
+			 (int) c2,
+			 isprint((int) c1) ? c1 : ' ',
+			 isprint((int) c2) ? c2 : ' ');
 #endif
 
 	for (i = 0; i < nSymboll; i++) {
 	  symboli = expectedSymbolArrayp[i];
 	  marpaEBNFSymbolp = &(marpaEBNFp->symbolArrayp[symboli]);
 
-	  okb = 0;
-
-          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "[%d/%d] %s?", (int) (p - grammars), (int) (grammarLengthl - 1), _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
-	  /* Process only terminals that we know about */
+	  /* Lexing */
 	  switch (symboli) {
 	  case LETTER:
-	    if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'))) { okb = 1; }
+	    okb = (((c1 >= 'a') && (c1 <= 'z')) || ((c1 >= 'A') && (c1 <= 'Z')));
 	    break;
 	  case DECIMAL_DIGIT:
-	    if ((c >= '0') && (c <= '9')) { okb = 1; }
+	    okb = ((c1 >= '0') && (c1 <= '9'));
 	    break;
 	  case CONCATENATE_SYMBOL:
-	    if (c == ',') { okb = 1; }
+	    okb = (c1 == ',');
 	    break;
 	  case DEFINING_SYMBOL:
-	    if (c == '=') { okb = 1; }
+	    okb = (c1 == '=');
 	    break;
 	  case DEFINITION_SEPARATOR_SYMBOL:
-	    if ((c == '|') || (c == '/') || (c == '!')) { okb = 1; }
+	    okb = ((c1 == '|') || (c1 == '/') || (c1 == '!'));
 	    break;
 	  case END_COMMENT_SYMBOL:
-	    if ((c == '*') && (q < maxp) && (*q == ')')) { okb = 1; ++q; }
+	    okb = ((c1 == '*') && (c2 == ')'));
 	    break;
 	  case END_GROUP_SYMBOL:
-	    if (c == ')') { okb = 1; }
+	    okb = (c1 == ')');
 	    break;
 	  case _END_OPTION_SYMBOL_0:
-	    if (c == ']') { okb = 1; }
+	    okb = (c1 == ']');
 	    break;
 	  case _END_OPTION_SYMBOL_1:
-	    if ((c == '/') && (q < maxp) && (*q == ')')) { okb = 1; ++q; }
+	    okb = ((c1 == '/') && (c2 == ')'));
 	    break;
 	  case _END_REPEAT_SYMBOL_0:
-	    if (c == '}') { okb = 1; }
+	    okb = (c1 == '}');
 	    break;
 	  case _END_REPEAT_SYMBOL_1:
-	    if ((c == ':') && (q < maxp) && (*q == ')')) { okb = 1; ++q; }
+	    okb = ((c1 == ':') && (c2 == ')'));
 	    break;
 	  case EXCEPT_SYMBOL:
-	    if (c == '-') { okb = 1; }
+	    okb = (c1 == '-');
 	    break;
 	  case FIRST_QUOTE_SYMBOL:
-	    if (c == '\'') { okb = 1; }
+	    okb = (c1 == '\'');
 	    break;
 	  case REPETITION_SYMBOL:
-	    if (c == '*') { okb = 1; }
+	    okb = (c1 == '*');
 	    break;
 	  case SECOND_QUOTE_SYMBOL:
-	    if (c == '"') { okb = 1; }
+	    okb = (c1 == '"');
 	    break;
 	  case SPECIAL_SEQUENCE_SYMBOL:
-	    if (c == '?') { okb = 1; }
+	    okb = (c1 == '?');
 	    break;
 	  case START_COMMENT_SYMBOL:
-	    if ((c == '(') && (q < maxp) && (*q == '*')) { okb = 1; ++q; }
+	    okb = ((c1 == '(') && (c2 == '*'));
 	    break;
 	  case START_GROUP_SYMBOL:
-	    if (c == '(') { okb = 1; }
+	    okb = (c1 == '(');
 	    break;
 	  case _START_OPTION_SYMBOL_0:
-	    if (c == '[') { okb = 1; }
+	    okb = (c1 == '[');
 	    break;
 	  case _START_OPTION_SYMBOL_1:
-	    if ((c == '(') && (q < maxp) && (*q == '/')) { okb = 1; ++q; }
+	    okb = ((c1 == '(') && (c2 == '/'));
 	    break;
 	  case _START_REPEAT_SYMBOL_0:
-	    if (c == '{') { okb = 1; }
+	    okb = (c1 == '{');
 	    break;
 	  case _START_REPEAT_SYMBOL_1:
-	    if ((c == '(') && (q < maxp) && (*q == ':')) { okb = 1; ++q; }
+	    okb = ((c1 == '(') && (c2 == ':'));
 	    break;
 	  case TERMINATOR_SYMBOL:
-	    if (c == ';' || c == '.') { okb = 1; }
+	    okb = (c1 == ';' || c1 == '.');
 	    break;
 	  case OTHER_CHARACTER:
-	    if ((c == ' ') || (c == ':') || (c == '+') || (c == '_') || (c == '%') || (c == '@')  ||
-		(c == '&') || (c == '#') || (c == '$') || (c == '<') || (c == '>') || (c == '\\') ||
-		(c == '^') || (c == '`') || (c == '~')
-		) { okb = 1; }
+	    okb = ((c1 == ' ') || (c1 == ':') || (c1 == '+') || (c1 == '_') || (c1 == '%') || (c1 == '@')  ||
+		   (c1 == '&') || (c1 == '#') || (c1 == '$') || (c1 == '<') || (c1 == '>') || (c1 == '\\') ||
+		   (c1 == '^') || (c1 == '`') || (c1 == '~'));
 	    break;
 	  case SPACE_CHARACTER:
-	    if (c == ' ') { okb = 1; }
+	    okb = (c1 == ' ');
 	    break;
 	  case HORIZONTAL_TABULATION_CHARACTER:
-	    if (c == '\t') { okb = 1; }
+	    okb = (c1 == '\t');
 	    break;
           case _CARRIAGE_RETURN:
-	    if (c == '\r') { okb = 1; }
+	    okb = (c1 == '\r');
 	    break;
           case _LINE_FEED:
-	    if (c == '\n') { ++linel; columnl = 1; okb = 1; }
+	    if ((okb = (c1 == '\n'))) {
+	      ++linel;
+	      columnl = 1;
+	    }
 	    break;
 	    break;
 	  case VERTICAL_TABULATION_CHARACTER:
-	    if (c == '\v') { okb = 1; }
+	    okb = (c1 == '\v');
 	    break;
 	  case FORM_FEED:
-	    if (c == '\f') { okb = 1; }
+	    okb = (c1 == '\f');
 	    break;
 	  default:
+	    okb = 0;
 	    break;
 	  }
+
+          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "[%d/%d] %s ? %s", (int) (p - grammars), (int) (grammarLengthl - 1), _marpaEBNF_symbolDescription(marpaEBNFp, symboli), okb ? "yes" : "no");
+
 	  if (okb) {
             GENERICSTACK_PUSH_INT(alternativeStackp, symboli);
             if (GENERICSTACK_ERROR(alternativeStackp)) {
               MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_INT error, %s", strerror(errno));
               goto err;
             }
-            if (lengthl <= 0) {
-              lengthl = q - p;
-            } else {
-              size_t thisLengthl = (size_t) (q - p);
-              if (thisLengthl > lengthl) {
-                lengthl = thisLengthl;
-              }
-            }
+	    /* Force lengthl for multiple-characters mapped to a single token */
+	    switch (symboli) {
+	    case START_COMMENT_SYMBOL:
+	    case END_COMMENT_SYMBOL:
+	    case _START_OPTION_SYMBOL_1:
+	    case _END_OPTION_SYMBOL_1:
+	    case _START_REPEAT_SYMBOL_1:
+	    case _END_REPEAT_SYMBOL_1:
+	      lengthl = 2;
+	      break;
+	    default:
+	      break;
+	    }
 	  }
+	  
 	}
+      }
+
+      /* We micro-optimized by not coding lengthl = 1 */
+      if ((GENERICSTACK_USED(alternativeStackp) > 0) && (lengthl <= 0)) {
+	lengthl = 1;
       }
     }
 
-    if (GENERICSTACK_USED(alternativeStackp) > 0) {
+    if (lengthl > 0) {
       size_t alternativel;
       int    valuei;
 
-      /* Per definition, lengthl is set */
-
-      /* Our input stack is a copy of what was matched */
-      tokens = malloc(lengthl + 1);
-      if (tokens == NULL) {
-        MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
-        goto err;
-      }
-      strncpy(tokens, p, lengthl);
-      tokens[lengthl] = '\0';
-      GENERICSTACK_PUSH_PTR(marpaEBNFp->inputStackp, tokens);
+      /* Our input stack is the pointer location */
+      GENERICSTACK_PUSH_INT(marpaEBNFp->inputStackp, posi);
       if (GENERICSTACK_ERROR(marpaEBNFp->inputStackp)) {
         MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_PTR error, %s", strerror(errno));
         goto err;
       }
 
+      /* Because we pushed a NULL as a first member of inputStack, valuei is always > 0 here: */
       valuei = GENERICSTACK_USED(marpaEBNFp->inputStackp) - 1;
       for (alternativel = 0; alternativel < GENERICSTACK_USED(alternativeStackp); alternativel++) {
 	symboli = GENERICSTACK_GET_INT(alternativeStackp, alternativel);
@@ -882,7 +864,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
           MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_GET_INT error, %s", strerror(errno));
           goto err;
         }
-        /* Some lexemes are characters in the input stream. We know them in advance */
+        /* If lengthl > 1, we know it can be only one specific lexeme */
         if ((lengthl > 1)                       &&
             (symboli != START_COMMENT_SYMBOL)   &&
             (symboli != END_COMMENT_SYMBOL)     &&
@@ -892,16 +874,6 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
             (symboli != _END_REPEAT_SYMBOL_1)) {
           continue;
         }
-        MARPAEBNF_DEBUGF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "[%d/%d] %s: length %d, %c%s%c%s",
-                         (int) (p - grammars),
-                         (int) (grammarLengthl - 1),
-                         _marpaEBNF_symbolDescription(marpaEBNFp, symboli),
-                         (int) lengthl,
-                         isprint((int) tokens[0]) ? tokens[0] : ' ',
-                         isprint((int) tokens[0]) ? "" : " (non printable)",
-                         (lengthl > 1) ? (isprint((int) tokens[1]) ? tokens[1] : ' ') : ' ',
-                         (lengthl > 1) ? (isprint((int) tokens[1]) ? "" : " (non printable)") : ""
-                         );
 	if (marpaWrapperRecognizer_alternativeb(marpaWrapperRecognizerp, symboli, valuei, 1) == 0) {
 	  goto err;
 	}
@@ -912,20 +884,20 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
     } else {
       /* This is an error if we are not at the end of the grammar and this is not a "space" */
       if (p < maxp) {
-        if (! isspace(*p)) {
+        if (! isspace(c1)) {
           MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "[%d/%d] Current character: 0x%02x '%c'%s is not recognized",
                            (int) (p - grammars),
                            (int) (grammarLengthl - 1),
-                           (int) *p,
-                           isprint((int) *p) ? *p : ' ',
-                           isprint((int) *p) ? "" : " (non printable)");
+                           (int) c1,
+                           isprint((int) c1) ? c1 : ' ',
+                           isprint((int) c1) ? "" : " (non printable)");
           goto err;
         } else {
-          MARPAEBNF_DEBUGF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "[%d/%d] Discarded character: 0x%02x '%c'%s",
+          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "[%d/%d] Discarded character: 0x%02x '%c'%s",
                            (int) (p - grammars),
                            (int) (grammarLengthl - 1),
-                           (int) c, isprint((int) c) ? c : ' ',
-                           isprint((int) c) ? "" : " (non printable)");
+                           (int) c1, isprint((int) c1) ? c1 : ' ',
+                           isprint((int) c1) ? "" : " (non printable)");
           lengthl = 1;
         }
       }
@@ -934,6 +906,9 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
     if (p < maxp) {
       /* Resume */   
       p += lengthl;
+      posi += lengthl;
+      q = p;
+      c2 = *p;
     } else {
       break;
     }
@@ -1002,11 +977,14 @@ static inline short _marpaEBNF_internalGrammarb(marpaEBNF_t *marpaEBNFp)
 
   /* Declare all the rules */
   for (i = 0; i < MARPAEBNF_LENGTH_ARRAY(marpaEBNFRuleArray); i++) {
-    rulei = marpaWrapperGrammar_newRulei(marpaEBNFp->marpaWrapperGrammarp,
-					 &(marpaEBNFRuleArray[i].option),
-					 marpaEBNFRuleArray[i].lhsSymboli,
-					 marpaEBNFRuleArray[i].rhsSymboll,
-					 marpaEBNFRuleArray[i].rhsSymbolip);
+    if (! marpaEBNFRuleArray[i].exceptionb) {
+      /* An exception is not a new rule */
+      rulei = marpaWrapperGrammar_newRulei(marpaEBNFp->marpaWrapperGrammarp,
+					   &(marpaEBNFRuleArray[i].option),
+					   marpaEBNFRuleArray[i].lhsSymboli,
+					   marpaEBNFRuleArray[i].rhsSymboll,
+					   marpaEBNFRuleArray[i].rhsSymbolip);
+    }
     if (rulei < 0) {
       goto err;
     }
@@ -1037,12 +1015,18 @@ static inline void _marpaEBNF_inputStackFree(marpaEBNF_t *marpaEBNFp)
 /****************************************************************************/
 {
   if (marpaEBNFp->inputStackp != NULL) {
-    while (GENERICSTACK_USED(marpaEBNFp->inputStackp) > 0) {
-      char *tokens = GENERICSTACK_POP_PTR(marpaEBNFp->inputStackp);
-      if (tokens != NULL) {
-        free(tokens);
-      }
-    }
+    GENERICSTACK_FREE(marpaEBNFp->inputStackp);
   }
+}
+
+/****************************************************************************/
+static inline short _marpaEBNF_memcmpb(marpaEBNF_t *marpaEBNFp, marpaEBNFSymbolEnum_t symboli, void *p, size_t maxLengthl, void *refp, size_t refLengthl)
+/****************************************************************************/
+{
+  const static char funcs[] = "_marpaEBNF_memcmpb";
+  short             rcb     = (refLengthl <= maxLengthl) ? ((memcmp(p, refp, refLengthl) == 0) ? 1 : 0) : 0;
+
+  MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "%s ? %s", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), (int) rcb);
+  return rcb;
 }
 
