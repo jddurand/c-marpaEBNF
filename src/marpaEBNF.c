@@ -121,11 +121,11 @@ typedef struct marpaEBNFRule {
   int                               rhsSymbolip[20]; /* Flexible array and ANSI-C are not friends */
 } marpaEBNFRule_t;
 
-typedef struct marpaExceptionRule {
+typedef struct marpaEBNFException {
   int                               lhsSymboli;
   size_t                            rhsSymboll;
   int                               rhsSymbolip[20]; /* Flexible array and ANSI-C are not friends */
-} marpaExceptionRule_t;
+} marpaEBNFException_t;
 
 /* List of all symbols of the EBNF grammar as per ISO/IEC 14977:1996 */
 static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
@@ -438,7 +438,7 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 1,            -1, 0, 1 }, _GAP_SYMBOL_UNIT_MANY,            1, { _GAP_SYMBOL_UNIT } },
   { { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _GAP_SEPARATOR_ANY, _GAP_SYMBOL_UNIT_MANY } },
   { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER, 1, { TERMINAL_CHARACTER } },
-  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { TERMINAL_CHARACTER } },
+  { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { META_IDENTIFIER } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { INTEGER } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { TERMINAL_STRING } },
@@ -486,7 +486,7 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, EMPTY_SEQUENCE,                   0, { -1 } } /* Some compilers like cl does not like an empty [] */
 };
 
-static marpaExceptionRule_t marpaEBNFExceptionArray[] = {
+static marpaEBNFException_t marpaEBNFExceptionArray[] = {
   /* ------------------------------------------------------------------------ */
   /* lhsSymboli,                   rhsSymboll, { rhsSymbolip }                */
   /* ------------------------------------------------------------------------ */
@@ -504,9 +504,10 @@ struct marpaEBNF {
   marpaWrapperGrammar_t *marpaWrapperGrammarp; /* Internal grammar */
   marpaEBNFSymbol_t     *symbolArrayp;         /* Copy of marpaEBNFSymbolArray */
   marpaEBNFRule_t       *ruleArrayp;           /* Copy of marpaEBNFRuleArray */
-  marpaExceptionRule_t  *exceptionArrayp;      /* Copy of marpaEBNFExceptionArray */
+  marpaEBNFException_t  *exceptionArrayp;      /* Copy of marpaEBNFExceptionArray */
   genericStack_t        *inputStackp;
   genericStack_t        *outputStackp;
+  genericStack_t        *exceptionStackp;      /* Current exceptions when traversing the ASF */
   int                    asfCallbackLeveli;    /* For tracing */
 };
 
@@ -535,6 +536,7 @@ typedef struct marpaEBNFAsf {
 
 static inline void  _marpaEBNF_inputStackFree(marpaEBNF_t *marpaEBNFp);
 static inline void  _marpaEBNF_outputStackFree(marpaEBNF_t *marpaEBNFp);
+static inline void  _marpaEBNF_exceptionStackFree(marpaEBNF_t *marpaEBNFp);
 static inline short _marpaEBNF_traverserCallbacki(marpaWrapperAsfTraverser_t *traverserp, void *userDatavp, int *valueip);
 
 /****************************************************************************/
@@ -573,7 +575,7 @@ marpaEBNF_t *marpaEBNF_newp(marpaEBNFOption_t *marpaEBNFOptionp)
     MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
     goto err;
   }
-  marpaEBNFp->exceptionArrayp      = (marpaExceptionRule_t *) malloc(marpaEBNFRuleArraySizel);
+  marpaEBNFp->exceptionArrayp      = (marpaEBNFException_t *) malloc(marpaEBNFExceptionArraySizel);
   if (marpaEBNFp->exceptionArrayp == NULL) {
     MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "malloc error, %s", strerror(errno));
     goto err;
@@ -643,6 +645,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   /* Initialize sensible data used in the err section */
   marpaEBNFp->inputStackp  = NULL;
   marpaEBNFp->outputStackp = NULL;
+  marpaEBNFp->exceptionStackp = NULL;
 
   if (grammars == NULL) {
     errno = EINVAL;
@@ -671,6 +674,17 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   GENERICSTACK_NEW(marpaEBNFp->outputStackp);
   if (GENERICSTACK_ERROR(marpaEBNFp->outputStackp)) {
     MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_NEW error, %s", strerror(errno));
+    goto err;
+  }
+  /* Create exception stack and initialize it with no exception (start symbol) */
+  GENERICSTACK_NEW(marpaEBNFp->exceptionStackp);
+  if (GENERICSTACK_ERROR(marpaEBNFp->exceptionStackp)) {
+    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_NEW error, %s", strerror(errno));
+    goto err;
+  }
+  GENERICSTACK_PUSH_PTR(marpaEBNFp->exceptionStackp, NULL);
+  if (GENERICSTACK_ERROR(marpaEBNFp->exceptionStackp)) {
+    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_PTR error, %s", strerror(errno));
     goto err;
   }
 
@@ -987,6 +1001,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
  done:
   _marpaEBNF_inputStackFree(marpaEBNFp);
   _marpaEBNF_outputStackFree(marpaEBNFp);
+  _marpaEBNF_exceptionStackFree(marpaEBNFp);
 
   GENERICSTACK_FREE(alternativeStackp);
 
@@ -1136,6 +1151,15 @@ static inline void _marpaEBNF_outputStackFree(marpaEBNF_t *marpaEBNFp)
 }
 
 /****************************************************************************/
+static inline void _marpaEBNF_exceptionStackFree(marpaEBNF_t *marpaEBNFp)
+/****************************************************************************/
+{
+  if (marpaEBNFp->exceptionStackp != NULL) {
+    GENERICSTACK_FREE(marpaEBNFp->exceptionStackp);
+  }
+}
+
+/****************************************************************************/
 static inline short _marpaEBNF_traverserCallbacki(marpaWrapperAsfTraverser_t *traverserp, void *userDatavp, int *valueip)
 /****************************************************************************/
 {
@@ -1211,7 +1235,23 @@ static inline short _marpaEBNF_traverserCallbacki(marpaWrapperAsfTraverser_t *tr
     size_t  rhIxi;
     size_t  indicel;
     short   nextb;
+    const static size_t marpaEBNFExceptionArrayLengthl = MARPAEBNF_LENGTH_ARRAY(marpaEBNFExceptionArray);
+    marpaEBNFException_t *exceptionp;
 
+    {
+      size_t usedl = GENERICSTACK_USED(marpaEBNFp->exceptionStackp);
+
+      if (GENERICSTACK_ERROR(marpaEBNFp->exceptionStackp)) {
+	MARPAEBNF_ERRORF(genericLoggerp, "%s... GENERICSTACK_USED error, %s", desc, strerror(errno));
+	goto err;
+      }
+      exceptionp = (marpaEBNFException_t *) GENERICSTACK_GET_PTR(marpaEBNFp->exceptionStackp, usedl - 1);
+      if (GENERICSTACK_ERROR(marpaEBNFp->exceptionStackp)) {
+	MARPAEBNF_ERRORF(genericLoggerp, "%s... GENERICSTACK_GET_PTR error, %s", desc, strerror(errno));
+	goto err;
+      }
+    }
+    
     while (1) {
 
       lengthl = marpaWrapperAsf_traverse_rh_lengthl(traverserp);
@@ -1236,7 +1276,18 @@ static inline short _marpaEBNF_traverserCallbacki(marpaWrapperAsfTraverser_t *tr
 	  continueb = 1;
 	  break;
 	default:
+	  /* Is it an exception ? */
 	  continueb = 0;
+	  if (exceptionp != NULL) {
+	    size_t i;
+	    for (i = 0; i < exceptionp->rhsSymboll; i++) {
+	      if (exceptionp->rhsSymbolip[i] == rhsSymboli) {
+		MARPAEBNF_TRACEF(genericLoggerp, funcs, "Level %d - %s ... RHS No %d %s is a rule exception", marpaEBNFp->asfCallbackLeveli, desc, rhIxi, rhsDesc);
+		continueb = 1;
+		break;
+	      }
+	    }
+	  }
 	  break;
 	}
 
@@ -1245,10 +1296,40 @@ static inline short _marpaEBNF_traverserCallbacki(marpaWrapperAsfTraverser_t *tr
 	  continue;
 	}
 
+	/* Before calling for the RHS value, inspect exceptions if any */
+	{
+	  void  *p = NULL;
+	  size_t i;
+
+	  for (i = 0; i < marpaEBNFExceptionArrayLengthl; i++) {
+	    if (marpaEBNFp->exceptionArrayp[i].lhsSymboli == rhsSymboli) {
+	      p = (void *) &(marpaEBNFp->exceptionArrayp[i]);
+	      break;
+	    }
+	  }
+#ifndef MARPAEBNF_NTRACE
+	  if (p != NULL) {
+	    MARPAEBNF_TRACEF(genericLoggerp, funcs, "Level %d - %s ... RHS No %d %s is an LHS with exceptions", marpaEBNFp->asfCallbackLeveli, desc, rhIxi, rhsDesc);
+	  } else {
+	    MARPAEBNF_TRACEF(genericLoggerp, funcs, "Level %d - %s ... RHS No %d %s is not an LHS with exception", marpaEBNFp->asfCallbackLeveli, desc, rhIxi, rhsDesc);
+	  }
+#endif
+	  GENERICSTACK_PUSH_PTR(marpaEBNFp->exceptionStackp, p);
+	  if (GENERICSTACK_ERROR(marpaEBNFp->exceptionStackp)) {
+	    MARPAEBNF_ERRORF(genericLoggerp, "%s ... RHS No %d %s: GENERICSTACK_PUSH_PTR error, %s", desc, rhIxi, rhsDesc, strerror(errno));
+	    goto err;
+	  }
+	}
 	if (! marpaWrapperAsf_traverse_rh_valueb(traverserp, rhIxi, &valuei)) {
 	  MARPAEBNF_ERRORF(genericLoggerp, "%s ... RHS No %d %s: marpaWrapperAsf_traverse_rh_valueb error", desc, rhIxi, rhsDesc);
 	  goto err;
 	}
+	GENERICSTACK_POP_PTR(marpaEBNFp->exceptionStackp);
+	if (GENERICSTACK_ERROR(marpaEBNFp->exceptionStackp)) {
+	  MARPAEBNF_ERRORF(genericLoggerp, "%s ... RHS No %d %s: GENERICSTACK_POP_PTR error, %s", desc, rhIxi, rhsDesc, strerror(errno));
+	  goto err;
+	}
+	
 	/* We expect valuei to be in outputStack */
 	indicel = valuei;
 	if (! GENERICSTACK_IS_PTR(marpaEBNFp->outputStackp, indicel)) {
