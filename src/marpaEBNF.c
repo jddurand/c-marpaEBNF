@@ -1129,17 +1129,17 @@ static inline short  _marpaEBNF_okRuleCallbackb(void *userDatavp, genericStack_t
   marpaEBNF_t       *marpaEBNFp       = (marpaEBNF_t *) userDatavp;
   genericLogger_t   *genericLoggerp   = marpaEBNFp->marpaEBNFOption.genericLoggerp;
   size_t             parentStackUsedl = GENERICSTACK_USED(parentRuleiStackp);
-  int                parentRulei;
+  int                grandParentRulei;
   marpaEBNFRule_t   *rulep;
   int                i;
   int                maxi;
   short              rcb = 0;
 
-  if (parentStackUsedl > 0) {
-    parentRulei = GENERICSTACK_GET_INT(parentRuleiStackp, parentStackUsedl - 1);
+  if (parentStackUsedl > 2) {
+    grandParentRulei = GENERICSTACK_GET_INT(parentRuleiStackp, parentStackUsedl - 2);
     if (GENERICSTACK_ERROR(parentRuleiStackp)) {
-      /* Is rulei an exception of parentRulei ? */
-      rulep = &(marpaEBNFp->ruleArrayp[parentRulei]);
+      /* Is rulei an exception of grandParentRulei->parentRulei ? */
+      rulep = &(marpaEBNFp->ruleArrayp[grandParentRulei]);
       maxi = (int) rulep->rhsExceptl;
       for (i = 0; i < maxi; maxi++) {
 	if (rulep->rhsExceptp[i] == rulei) {
