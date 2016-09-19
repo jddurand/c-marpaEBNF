@@ -233,7 +233,7 @@ static char *ebnfs =
 
 int main(int argc, char **argv) {
   int rci = 0;
-  genericLogger_t  *genericLoggerp = GENERICLOGGER_NEW(GENERICLOGGER_LOGLEVEL_TRACE);
+  genericLogger_t  *genericLoggerp = GENERICLOGGER_NEW(GENERICLOGGER_LOGLEVEL_INFO);
   marpaEBNFOption_t marpaEBNFOption = { genericLoggerp };
   marpaEBNF_t *marpaEBNFp;
 

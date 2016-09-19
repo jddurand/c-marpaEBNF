@@ -208,7 +208,26 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * Note: ' ' character
    * ------------------------------------------
    *
-   * It can happen in two cases: <space character> and <other character>. Marpa is handling this ambiguity.
+   * It can happen in two cases: <space character> and <other character>. Marpa is handling this ambiguity at
+   * lexing phase, and we drive it at value phase:
+   *
+   * <gap separator> is a non-printing character, in particular space ' '
+   * <gap free symbol> is a <terminal character> minus the quotes or a <terminal string>.
+   * But a <terminal character> can be an <other character>, itself being potentially a ' ' character
+   *
+   * EBNF says that a non printing character, i.e. <gap separator> has no formal effect on a syntax
+   * if the character is outside a <terminal string>, or pair of characters forming a single <terminal character>.
+   *
+   * This is resumed to:
+   *
+   * the ' ' character cannot be an <other character> if we are not in a <terminal string> context.
+   *
+   * ------------------------------------------
+   * Note: invalid characters
+   * ------------------------------------------
+   *
+   * Yet another thingy that is not context free in EBNF: (*), (:) and (/) are invalid sequences outside a 
+   * terminal string or sequence context.
    *
   /* ---------------- */
   /* Internal symbols */
@@ -395,9 +414,12 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { START_REPEAT_SYMBOL }, 0, { -1 } },
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { TERMINATOR_SYMBOL }, 0, { -1 } },
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_CHARACTER,               1, { OTHER_CHARACTER }, 0, { -1 } },
+  /* -------------> Exception <----------------- */
   { { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  1, { TERMINAL_CHARACTER }, 2, {  FIRST_QUOTE_SYMBOL, SECOND_QUOTE_SYMBOL } },
   { { 0, 0, 0,            -1, 0, 0 }, GAP_FREE_SYMBOL,                  1, { TERMINAL_STRING }, 0, { -1 } },
+  /* -------------> Exception <----------------- */
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { FIRST_QUOTE_SYMBOL, _FIRST_TERMINAL_CHARACTER_MANY, FIRST_QUOTE_SYMBOL }, 0, { -1 } },
+  /* -------------> Exception <----------------- */
   { { 0, 0, 0,            -1, 0, 0 }, TERMINAL_STRING,                  3, { SECOND_QUOTE_SYMBOL, _SECOND_TERMINAL_CHARACTER_MANY, SECOND_QUOTE_SYMBOL }, 0, { -1 } },
   { { 0, 0, 0,            -1, 0, 0 }, NEW_LINE,                         3, { _CARRIAGE_RETURN_ANY, _LINE_FEED, _CARRIAGE_RETURN_ANY }, 0, { -1 } },
   { { 0, 0, 1,            -1, 0, 0 }, _CARRIAGE_RETURN_ANY,             1, { _CARRIAGE_RETURN }, 0, { -1 } },
@@ -411,7 +433,9 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, END_OPTION_SYMBOL,                1, { _END_OPTION_SYMBOL_1 }, 0, { -1 } },
   { { 0, 0, 1,            -1, 0, 1 }, _FIRST_TERMINAL_CHARACTER_MANY,   1, { FIRST_TERMINAL_CHARACTER }, 0, { -1 } },
   { { 0, 0, 1,            -1, 0, 1 }, _SECOND_TERMINAL_CHARACTER_MANY,  1, { SECOND_TERMINAL_CHARACTER }, 0, { -1 } },
+  /* -------------> Exception <----------------- */
   { { 0, 0, 0,            -1, 0, 0 }, FIRST_TERMINAL_CHARACTER,         1, { TERMINAL_CHARACTER }, 1, { FIRST_QUOTE_SYMBOL } },
+  /* -------------> Exception <----------------- */
   { { 0, 0, 0,            -1, 0, 0 }, SECOND_TERMINAL_CHARACTER,        1, { TERMINAL_CHARACTER }, 1, { SECOND_QUOTE_SYMBOL } },
   { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { SPACE_CHARACTER }, 0, { -1 } },
   { { 0, 0, 0,            -1, 0, 0 }, GAP_SEPARATOR,                    1, { HORIZONTAL_TABULATION_CHARACTER }, 0, { -1 } },
@@ -422,6 +446,7 @@ static marpaEBNFRule_t marpaEBNFRuleArray[] = {
   { { 0, 0, 0,            -1, 0, 0 }, _GAP_SYMBOL_UNIT,                 2, { GAP_FREE_SYMBOL, _GAP_SEPARATOR_ANY }, 0, { -1 } },
   { { 0, 0, 1,            -1, 0, 1 }, _GAP_SYMBOL_UNIT_MANY,            1, { _GAP_SYMBOL_UNIT }, 0, { -1 } },
   { { 0, 0, 0,            -1, 0, 0 }, SYNTAX,                           2, { _GAP_SEPARATOR_ANY, _GAP_SYMBOL_UNIT_MANY }, 0, { -1 } },
+  /* -------------> Exception <----------------- */
   { { 0, 0, 0,            -1, 0, 0 }, _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER, 1, { TERMINAL_CHARACTER }, 8, { LETTER, DECIMAL_DIGIT, FIRST_QUOTE_SYMBOL, SECOND_QUOTE_SYMBOL, START_COMMENT_SYMBOL, END_COMMENT_SYMBOL, SPECIAL_SEQUENCE_SYMBOL, OTHER_CHARACTER } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { _COMMENTLESS_SYMBOL_TERMINAL_CHARACTER }, 0, { -1 } },
   { { 0, 0, 0,            -1, 0, 0 }, COMMENTLESS_SYMBOL,               1, { META_IDENTIFIER }, 0, { -1 } },
@@ -481,8 +506,8 @@ struct marpaEBNF {
   marpaEBNFRule_t       *ruleArrayp;           /* Copy of marpaEBNFRuleArray */
   genericStack_t        *inputStackp;
   genericStack_t        *outputStackp;
-  genericStack_t        *exceptionStackp;      /* Current exceptions when traversing the ASF */
-  int                    asfCallbackLeveli;    /* For tracing */
+  short                  stringContextb;
+  short                  sequenceContextb;
 };
 
 /* When pruning the ASF, we distinguish concatenated strings from structures */
@@ -498,6 +523,7 @@ typedef struct marpaEBNFOutputStack {
 
 static inline short  _marpaEBNF_internalGrammarb(marpaEBNF_t *marpaEBNFp);
 static inline char  *_marpaEBNF_symbolDescription(void *userDatavp, int symboli);
+static inline short  _marpaEBNF_okSymbolCallbackb(void *userDatavp, genericStack_t *parentRuleiStackp, int symboli, int argi);
 static inline short  _marpaEBNF_okRuleCallbackb(void *userDatavp, genericStack_t *parentRuleiStackp, int rulei);
 static inline short  _marpaEBNF_valueRuleCallback(void *userDatavp, int rulei, int arg0i, int argni, int resulti);
 static inline short  _marpaEBNF_valueSymbolCallback(void *userDatavp, int symboli, int argi, int resulti);
@@ -509,7 +535,6 @@ static marpaEBNFOption_t marpaEBNFOptionDefault = {
 
 static inline void  _marpaEBNF_inputStackFree(marpaEBNF_t *marpaEBNFp);
 static inline void  _marpaEBNF_outputStackFree(marpaEBNF_t *marpaEBNFp);
-static inline void  _marpaEBNF_exceptionStackFree(marpaEBNF_t *marpaEBNFp);
 
 /****************************************************************************/
 marpaEBNF_t *marpaEBNF_newp(marpaEBNFOption_t *marpaEBNFOptionp)
@@ -532,8 +557,13 @@ marpaEBNF_t *marpaEBNF_newp(marpaEBNFOption_t *marpaEBNFOptionp)
   /* Initialization */
   marpaEBNFp->marpaEBNFOption      = *marpaEBNFOptionp;
   marpaEBNFp->grammarp             = NULL;
+  marpaEBNFp->marpaWrapperGrammarp = NULL;
   marpaEBNFp->symbolArrayp         = NULL;
   marpaEBNFp->ruleArrayp           = NULL;
+  marpaEBNFp->inputStackp          = NULL;
+  marpaEBNFp->outputStackp         = NULL;
+  marpaEBNFp->stringContextb       = 0;
+  marpaEBNFp->sequenceContextb     = 0;
   
   marpaEBNFp->symbolArrayp         = (marpaEBNFSymbol_t *) malloc(marpaEBNFSymbolArraySizel);
   if (marpaEBNFp->symbolArrayp == NULL) {
@@ -608,7 +638,6 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   /* Initialize sensible data used in the err section */
   marpaEBNFp->inputStackp  = NULL;
   marpaEBNFp->outputStackp = NULL;
-  marpaEBNFp->exceptionStackp = NULL;
 
   if (grammars == NULL) {
     errno = EINVAL;
@@ -637,17 +666,6 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   GENERICSTACK_NEW(marpaEBNFp->outputStackp);
   if (GENERICSTACK_ERROR(marpaEBNFp->outputStackp)) {
     MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_NEW error, %s", strerror(errno));
-    goto err;
-  }
-  /* Create exception stack and initialize it with no exception (start symbol) */
-  GENERICSTACK_NEW(marpaEBNFp->exceptionStackp);
-  if (GENERICSTACK_ERROR(marpaEBNFp->exceptionStackp)) {
-    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_NEW error, %s", strerror(errno));
-    goto err;
-  }
-  GENERICSTACK_PUSH_PTR(marpaEBNFp->exceptionStackp, NULL);
-  if (GENERICSTACK_ERROR(marpaEBNFp->exceptionStackp)) {
-    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_PUSH_PTR error, %s", strerror(errno));
     goto err;
   }
 
@@ -767,6 +785,11 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 	    okb = ((c1 == ' ') || (c1 == ':') || (c1 == '+') || (c1 == '_') || (c1 == '%') || (c1 == '@')  ||
 		   (c1 == '&') || (c1 == '#') || (c1 == '$') || (c1 == '<') || (c1 == '>') || (c1 == '\\') ||
 		   (c1 == '^') || (c1 == '`') || (c1 == '~'));
+	    /*
+	      if (okb && (c1 == ' ') && (! marpaEBNFp->stringContextb)) {
+	        okb = 0;
+	      }
+	    */
 	    break;
 	  case SPACE_CHARACTER:
 	    okb = (c1 == ' ');
@@ -860,6 +883,9 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 
     if (lengthl > 0) {
       size_t alternativel;
+#ifndef MARPAEBNF_NTRACE
+      int    nalternativei;
+#endif
       int    valuei;
       char  *tokens;
 
@@ -879,6 +905,9 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 
       /* Because we pushed a NULL as a first member of inputStack, valuei is always > 0 here: */
       valuei = GENERICSTACK_USED(marpaEBNFp->inputStackp) - 1;
+#ifndef MARPAEBNF_NTRACE
+      nalternativei = 0;
+#endif
       for (alternativel = 0; alternativel < GENERICSTACK_USED(alternativeStackp); alternativel++) {
 	symboli = GENERICSTACK_GET_INT(alternativeStackp, alternativel);
         if (GENERICSTACK_ERROR(alternativeStackp)) {
@@ -895,13 +924,56 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
             (symboli != _END_REPEAT_SYMBOL_1)) {
           continue;
         }
+	/* Manage string context */
+	switch (symboli) {
+	case FIRST_QUOTE_SYMBOL:
+	case SECOND_QUOTE_SYMBOL:
+	  marpaEBNFp->stringContextb = ~marpaEBNFp->stringContextb;
+          MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "[%d/%d] String context is %s",
+                           (int) (p - grammars),
+                           (int) (grammarLengthl - 1),
+                           marpaEBNFp->stringContextb ? "starting" : "ending");
+	  break;
+	default:
+	  break;
+	}
+
 	if (marpaWrapperRecognizer_alternativeb(marpaWrapperRecognizerp, symboli, valuei, 1) == 0) {
 	  goto err;
 	}
+#ifndef MARPAEBNF_NTRACE
+	nalternativei++;
+#endif
       }
       if (marpaWrapperRecognizer_completeb(marpaWrapperRecognizerp) == 0) {
 	goto err;
       }
+#ifndef MARPAEBNF_NTRACE
+      if (nalternativei > 1) {
+	MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "[%d/%d] %d alternatives",
+			(int) (p - grammars),
+			(int) (grammarLengthl - 1),
+			nalternativei);
+	for (alternativel = 0; alternativel < GENERICSTACK_USED(alternativeStackp); alternativel++) {
+	  symboli = GENERICSTACK_GET_INT(alternativeStackp, alternativel);
+	  if (GENERICSTACK_ERROR(alternativeStackp)) {
+	    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_GET_INT error, %s", strerror(errno));
+	    goto err;
+	  }
+	  /* If lengthl > 1, we know it can be only one specific lexeme */
+	  if ((lengthl > 1)                       &&
+	      (symboli != START_COMMENT_SYMBOL)   &&
+	      (symboli != END_COMMENT_SYMBOL)     &&
+	      (symboli != _START_OPTION_SYMBOL_1) &&
+	      (symboli != _END_OPTION_SYMBOL_1)   &&
+	      (symboli != _START_REPEAT_SYMBOL_1) &&
+	      (symboli != _END_REPEAT_SYMBOL_1)) {
+	    continue;
+	  }
+	  MARPAEBNF_INFOF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "  %s", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
+	}
+      }
+#endif
     } else {
       /* This is an error if we are not at the end of the grammar and this is not a "space" */
       if (p < maxp) {
@@ -947,13 +1019,15 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   }
 
   /* Prune the ASF */
-  if (! marpaWrapperAsf_valueb(marpaWrapperAsfp,
-			       marpaEBNFp,
-			       _marpaEBNF_okRuleCallbackb,
-			       _marpaEBNF_valueRuleCallback,
-			       _marpaEBNF_valueSymbolCallback,
-			       _marpaEBNF_valueNullingCallback,
-			       &valuei)) {
+  marpaEBNFp->stringContextb = 0;
+  marpaEBNFp->sequenceContextb = 0;
+  if (! marpaWrapperAsf_prunedValueb(marpaWrapperAsfp,
+				     marpaEBNFp,
+				     _marpaEBNF_okSymbolCallbackb,
+				     _marpaEBNF_okRuleCallbackb,
+				     _marpaEBNF_valueRuleCallback,
+				     _marpaEBNF_valueSymbolCallback,
+				     _marpaEBNF_valueNullingCallback)) {
     goto err;
   }
 
@@ -966,7 +1040,6 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
  done:
   _marpaEBNF_inputStackFree(marpaEBNFp);
   _marpaEBNF_outputStackFree(marpaEBNFp);
-  _marpaEBNF_exceptionStackFree(marpaEBNFp);
 
   GENERICSTACK_FREE(alternativeStackp);
 
@@ -1113,55 +1186,117 @@ static inline void _marpaEBNF_outputStackFree(marpaEBNF_t *marpaEBNFp)
 }
 
 /****************************************************************************/
-static inline void _marpaEBNF_exceptionStackFree(marpaEBNF_t *marpaEBNFp)
-/****************************************************************************/
-{
-  if (marpaEBNFp->exceptionStackp != NULL) {
-    GENERICSTACK_FREE(marpaEBNFp->exceptionStackp);
-  }
-}
-
-/****************************************************************************/
 static inline short  _marpaEBNF_okRuleCallbackb(void *userDatavp, genericStack_t *parentRuleiStackp, int rulei)
 /****************************************************************************/
 {
   const static char  funcs[]          = "_marpaEBNF_okRuleCallbackb";
   marpaEBNF_t       *marpaEBNFp       = (marpaEBNF_t *) userDatavp;
   genericLogger_t   *genericLoggerp   = marpaEBNFp->marpaEBNFOption.genericLoggerp;
+  marpaEBNFRule_t   *rulep            = &(marpaEBNFp->ruleArrayp[rulei]);
+  char              *descriptions     = _marpaEBNF_symbolDescription(marpaEBNFp, rulep->lhsSymboli);
+  short              rcb              = 1;
+
+  /* MARPAEBNF_TRACEF(genericLoggerp, funcs, "Rule %s: return %d", descriptions, (int) rcb); */
+  return rcb;
+}
+
+/****************************************************************************/
+static inline short _marpaEBNF_okSymbolCallbackb(void *userDatavp, genericStack_t *parentRuleiStackp, int symboli, int argi)
+/****************************************************************************/
+{
+  const static char  funcs[]          = "_marpaEBNF_okSymbolCallbackb";
+  marpaEBNF_t       *marpaEBNFp       = (marpaEBNF_t *) userDatavp;
+  genericLogger_t   *genericLoggerp   = marpaEBNFp->marpaEBNFOption.genericLoggerp;
+  char              *descriptions     = _marpaEBNF_symbolDescription(marpaEBNFp, symboli);
   size_t             parentStackUsedl = GENERICSTACK_USED(parentRuleiStackp);
+  short              rcb              = 1;
   int                grandParentRulei;
-  marpaEBNFRule_t   *rulep;
+  marpaEBNFRule_t   *grandParentrulep;
+  char              *grandParentDescriptions;
   int                i;
   int                maxi;
-  short              rcb = 0;
 
   if (parentStackUsedl > 2) {
     grandParentRulei = GENERICSTACK_GET_INT(parentRuleiStackp, parentStackUsedl - 2);
     if (GENERICSTACK_ERROR(parentRuleiStackp)) {
-      /* Is rulei an exception of grandParentRulei->parentRulei ? */
-      rulep = &(marpaEBNFp->ruleArrayp[grandParentRulei]);
-      maxi = (int) rulep->rhsExceptl;
-      for (i = 0; i < maxi; maxi++) {
-	if (rulep->rhsExceptp[i] == rulei) {
-	  rcb = 1;
+      MARPAEBNF_ERRORF(genericLoggerp, funcs, "Symbol %s: parentRuleiStackp get failure, %s", descriptions, strerror(errno));
+      rcb = 0;
+    } else {
+      /* Is rulei an exception of grandParentRulei ? */
+      grandParentrulep = &(marpaEBNFp->ruleArrayp[grandParentRulei]);
+      grandParentDescriptions = _marpaEBNF_symbolDescription(marpaEBNFp, grandParentrulep->lhsSymboli);
+      maxi = (int) grandParentrulep->rhsExceptl;
+      for (i = 0; i < maxi; i++) {
+	if (grandParentrulep->rhsExceptp[i] == symboli) {
+	  MARPAEBNF_INFOF(genericLoggerp, "Symbol %s: found as %s exception", descriptions, grandParentDescriptions);
+	  rcb = -1;
 	  break;
 	}
       }
     }
   }
 
-  MARPAEBNF_TRACEF(genericLoggerp, funcs, "return %d", (int) rcb);
-  return 0;
+  if (rcb) {
+    /* Manage string context */
+    switch (symboli) {
+    case FIRST_QUOTE_SYMBOL:
+    case SECOND_QUOTE_SYMBOL:
+      marpaEBNFp->stringContextb = ~marpaEBNFp->stringContextb;
+      MARPAEBNF_INFOF(genericLoggerp, "Symbol %s: string context is %s", descriptions, marpaEBNFp->stringContextb ? "starting" : "ending");
+      break;
+    case OTHER_CHARACTER:
+      if (! marpaEBNFp->stringContextb) {
+	MARPAEBNF_INFOF(genericLoggerp, "Symbol %s: rejected because not in string context", descriptions);
+	rcb = -1;
+      }
+      break;
+    default:
+      break;
+    }
+  }
+
+  MARPAEBNF_TRACEF(genericLoggerp, funcs, "Symbol %s: return %d", descriptions, (int) rcb);
+  return rcb;
+}
+
+/****************************************************************************/
+static inline short  _marpaEBNF_valueRuleCallback(void *userDatavp, int rulei, int arg0i, int argni, int resulti)
+/****************************************************************************/
+{
+  const static char  funcs[]          = "_marpaEBNF_valueRuleCallback";
+  marpaEBNF_t       *marpaEBNFp       = (marpaEBNF_t *) userDatavp;
+  genericLogger_t   *genericLoggerp   = marpaEBNFp->marpaEBNFOption.genericLoggerp;
+  marpaEBNFRule_t   *rulep            = &(marpaEBNFp->ruleArrayp[rulei]);
+  char              *descriptions     = _marpaEBNF_symbolDescription(marpaEBNFp, rulep->lhsSymboli);
+  short              rcb              = 1;
+
+  MARPAEBNF_TRACEF(genericLoggerp, funcs, "Rule %s [%d..%d] => %d, return %d", descriptions, arg0i, argni, resulti, (int) rcb);
+  return rcb;
 }
 
 /****************************************************************************/
 static inline short  _marpaEBNF_valueSymbolCallback(void *userDatavp, int symboli, int argi, int resulti)
 /****************************************************************************/
 {
-  const static char  funcs[]          = "_marpaEBNF_okRuleCallbackb";
+  const static char  funcs[]          = "_marpaEBNF_valueSymbolCallback";
   marpaEBNF_t       *marpaEBNFp       = (marpaEBNF_t *) userDatavp;
   genericLogger_t   *genericLoggerp   = marpaEBNFp->marpaEBNFOption.genericLoggerp;
+  short              rcb              = 1;
 
-  /* We set in outputStack at indice resulti the duplicate of inputStack at indice argi */
+  MARPAEBNF_TRACEF(genericLoggerp, funcs, "return %d", (int) rcb);
+  return rcb;
 }
 
+/****************************************************************************/
+static inline short  _marpaEBNF_valueNullingCallback(void *userDatavp, int symboli, int resulti)
+/****************************************************************************/
+{
+  const static char  funcs[]          = "_marpaEBNF_valueNullingCallback";
+  marpaEBNF_t       *marpaEBNFp       = (marpaEBNF_t *) userDatavp;
+  genericLogger_t   *genericLoggerp   = marpaEBNFp->marpaEBNFOption.genericLoggerp;
+  char              *descriptions     = _marpaEBNF_symbolDescription(marpaEBNFp, symboli);
+  short              rcb              = 1;
+
+  MARPAEBNF_TRACEF(genericLoggerp, funcs, "Rule %s => %d, return %d", descriptions, resulti, (int) rcb);
+  return rcb;
+}
