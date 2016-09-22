@@ -111,6 +111,7 @@ typedef enum marpaEBNFSymbolEnum {
 
 typedef struct marpaEBNFSymbol {
   marpaEBNFSymbolEnum_t symboli;
+  short                 isInAnExceptionb;
   char                 *descriptions;
 } marpaEBNFSymbol_t;
 
@@ -125,76 +126,76 @@ typedef struct marpaEBNFRule {
 
 /* List of all symbols of the EBNF grammar as per ISO/IEC 14977:1996 */
 static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
-  /* -------------------------------------------
-  {symboli                        , descriptions
-  ---------------------------------------------- */
-  {_START                         , "[:start:]" },
-  {LETTER                         , "<letter>" },
-  {DECIMAL_DIGIT                  , "<decimal digit>" },
-  {CONCATENATE_SYMBOL             , "<concatenate symbol>" },
-  {DEFINING_SYMBOL                , "<defining symbol>" },
-  {DEFINITION_SEPARATOR_SYMBOL    , "<definition separator symbol>" },
-  {END_COMMENT_SYMBOL             , "<end comment symbol>" },
-  {END_GROUP_SYMBOL               , "<end group symbol>" },
-  {END_OPTION_SYMBOL              , "<end option symbol>" },
-  {END_REPEAT_SYMBOL              , "<end repeat symbol>" },
-  {EXCEPT_SYMBOL                  , "<except symbol>" },
-  {FIRST_QUOTE_SYMBOL             , "<first quote symbol>" },
-  {REPETITION_SYMBOL              , "<repetition symbol>" },
-  {SECOND_QUOTE_SYMBOL            , "<second quote symbol>" },
-  {SPECIAL_SEQUENCE_SYMBOL        , "<special sequence symbol>" },
-  {START_COMMENT_SYMBOL           , "<start comment symbol>" },
-  {START_GROUP_SYMBOL             , "<start group symbol>" },
-  {START_OPTION_SYMBOL            , "<start option symbol>" },
-  {START_REPEAT_SYMBOL            , "<start repeat symbol>" },
-  {TERMINATOR_SYMBOL              , "<terminator symbol>" },
-  {OTHER_CHARACTER                , "<other character>" },
-  {SPACE_CHARACTER                , "<space character>" },
-  {HORIZONTAL_TABULATION_CHARACTER, "<horizontal tabulation character>" },
-  {NEW_LINE                       , "<new line>" },
-  {VERTICAL_TABULATION_CHARACTER  , "<vertical tabulation character>" },
-  {FORM_FEED                      , "<form feed>" },
-  {TERMINAL_CHARACTER             , "<terminal character>" },
-  {GAP_FREE_SYMBOL                , "<gap free symbol>" },
-  {TERMINAL_STRING                , "<terminal string>" },
-  {FIRST_TERMINAL_CHARACTER       , "<first terminal character>" },
-  {SECOND_TERMINAL_CHARACTER      , "<second terminal character>" },
-  {GAP_SEPARATOR                  , "<gap separator>" },
-  {SYNTAX                         , "<syntax>" },
-  {COMMENTLESS_SYMBOL             , "<commentless symbol>" },
-  {INTEGER                        , "<integer>" },
-  {META_IDENTIFIER                , "<meta identifier>" },
-  {META_IDENTIFIER_CHARACTER      , "<meta identifier character>" },
-  {SPECIAL_SEQUENCE               , "<special sequence>" },
-  {SPECIAL_SEQUENCE_CHARACTER     , "<special sequence character>" },
-  {COMMENT_SYMBOL                 , "<comment symbol>" },
-  {BRACKETED_TEXTUAL_COMMENT      , "<bracketed textual comment>" },
-  {SYNTAX_RULE                    , "<syntax rule>" },
-  {DEFINITIONS_LIST               , "<definitions list>" },
-  {SINGLE_DEFINITION              , "<single definition>" },
-  {SYNTACTIC_TERM                 , "<syntactic term>" },
-  {SYNTACTIC_EXCEPTION            , "<syntactic exception>" },
-  {SYNTACTIC_FACTOR               , "<syntactic factor>" },
-  {SYNTACTIC_PRIMARY              , "<syntactic primary>" },
-  {OPTIONAL_SEQUENCE              , "<optional sequence>" },
-  {REPEATED_SEQUENCE              , "<repeated sequence>" },
-  {GROUPED_SEQUENCE               , "<grouped sequence>" },
-  {EMPTY_SEQUENCE                 , "<empty sequence>" },
-  {COMMENT                        , "<comment>" },
+  /* -----------------------------------------------------------
+  {symboli,                       isInAnExceptionb, descriptions
+  -------------------------------------------------------------- */
+  {_START                         , 0             , "[:start:]" },
+  {LETTER                         , 0             , "<letter>" },
+  {DECIMAL_DIGIT                  , 0             , "<decimal digit>" },
+  {CONCATENATE_SYMBOL             , 0             , "<concatenate symbol>" },
+  {DEFINING_SYMBOL                , 0             , "<defining symbol>" },
+  {DEFINITION_SEPARATOR_SYMBOL    , 0             , "<definition separator symbol>" },
+  {END_COMMENT_SYMBOL             , 0             , "<end comment symbol>" },
+  {END_GROUP_SYMBOL               , 0             , "<end group symbol>" },
+  {END_OPTION_SYMBOL              , 0             , "<end option symbol>" },
+  {END_REPEAT_SYMBOL              , 0             , "<end repeat symbol>" },
+  {EXCEPT_SYMBOL                  , 0             , "<except symbol>" },
+  {FIRST_QUOTE_SYMBOL             , 0             , "<first quote symbol>" },
+  {REPETITION_SYMBOL              , 0             , "<repetition symbol>" },
+  {SECOND_QUOTE_SYMBOL            , 0             , "<second quote symbol>" },
+  {SPECIAL_SEQUENCE_SYMBOL        , 0             , "<special sequence symbol>" },
+  {START_COMMENT_SYMBOL           , 0             , "<start comment symbol>" },
+  {START_GROUP_SYMBOL             , 0             , "<start group symbol>" },
+  {START_OPTION_SYMBOL            , 0             , "<start option symbol>" },
+  {START_REPEAT_SYMBOL            , 0             , "<start repeat symbol>" },
+  {TERMINATOR_SYMBOL              , 0             , "<terminator symbol>" },
+  {OTHER_CHARACTER                , 0             , "<other character>" },
+  {SPACE_CHARACTER                , 0             , "<space character>" },
+  {HORIZONTAL_TABULATION_CHARACTER, 0             , "<horizontal tabulation character>" },
+  {NEW_LINE                       , 0             , "<new line>" },
+  {VERTICAL_TABULATION_CHARACTER  , 0             , "<vertical tabulation character>" },
+  {FORM_FEED                      , 0             , "<form feed>" },
+  {TERMINAL_CHARACTER             , 0             , "<terminal character>" },
+  {GAP_FREE_SYMBOL                , 0             , "<gap free symbol>" },
+  {TERMINAL_STRING                , 0             , "<terminal string>" },
+  {FIRST_TERMINAL_CHARACTER       , 0             , "<first terminal character>" },
+  {SECOND_TERMINAL_CHARACTER      , 0             , "<second terminal character>" },
+  {GAP_SEPARATOR                  , 0             , "<gap separator>" },
+  {SYNTAX                         , 0             , "<syntax>" },
+  {COMMENTLESS_SYMBOL             , 0             , "<commentless symbol>" },
+  {INTEGER                        , 0             , "<integer>" },
+  {META_IDENTIFIER                , 0             , "<meta identifier>" },
+  {META_IDENTIFIER_CHARACTER      , 0             , "<meta identifier character>" },
+  {SPECIAL_SEQUENCE               , 0             , "<special sequence>" },
+  {SPECIAL_SEQUENCE_CHARACTER     , 0             , "<special sequence character>" },
+  {COMMENT_SYMBOL                 , 0             , "<comment symbol>" },
+  {BRACKETED_TEXTUAL_COMMENT      , 0             , "<bracketed textual comment>" },
+  {SYNTAX_RULE                    , 0             , "<syntax rule>" },
+  {DEFINITIONS_LIST               , 0             , "<definitions list>" },
+  {SINGLE_DEFINITION              , 0             , "<single definition>" },
+  {SYNTACTIC_TERM                 , 0             , "<syntactic term>" },
+  {SYNTACTIC_EXCEPTION            , 0             , "<syntactic exception>" },
+  {SYNTACTIC_FACTOR               , 0             , "<syntactic factor>" },
+  {SYNTACTIC_PRIMARY              , 0             , "<syntactic primary>" },
+  {OPTIONAL_SEQUENCE              , 0             , "<optional sequence>" },
+  {REPEATED_SEQUENCE              , 0             , "<repeated sequence>" },
+  {GROUPED_SEQUENCE               , 0             , "<grouped sequence>" },
+  {EMPTY_SEQUENCE                 , 0             , "<empty sequence>" },
+  {COMMENT                        , 0             , "<comment>" },
   /*
     some symbols are explicitely splitted into their two letters
   */
-  {_CARRIAGE_RETURN              , "<carriage return>" },
-  {_CARRIAGE_RETURN_ANY          , "<carriage return any*>" },
-  {_LINE_FEED                    , "<line feed>" },
-  {_START_REPEAT_SYMBOL_0         , "<start repeat symbol 0>" },
-  {_START_REPEAT_SYMBOL_1         , "<start repeat symbol 1>" },
-  {_END_REPEAT_SYMBOL_0           , "<end repeat symbol 0>" },
-  {_END_REPEAT_SYMBOL_1           , "<end repeat symbol 1>" },
-  {_START_OPTION_SYMBOL_0         , "<start option symbol 0>" },
-  {_START_OPTION_SYMBOL_1         , "<start option symbol 1>" },
-  {_END_OPTION_SYMBOL_0           , "<end option symbol 0>" },
-  {_END_OPTION_SYMBOL_1           , "<end option symbol 1>" },
+  {_CARRIAGE_RETURN               , 0             , "<carriage return>" },
+  {_CARRIAGE_RETURN_ANY           , 0             , "<carriage return any*>" },
+  {_LINE_FEED                     , 0             , "<line feed>" },
+  {_START_REPEAT_SYMBOL_0         , 0             , "<start repeat symbol 0>" },
+  {_START_REPEAT_SYMBOL_1         , 0             , "<start repeat symbol 1>" },
+  {_END_REPEAT_SYMBOL_0           , 0             , "<end repeat symbol 0>" },
+  {_END_REPEAT_SYMBOL_1           , 0             , "<end repeat symbol 1>" },
+  {_START_OPTION_SYMBOL_0         , 0             , "<start option symbol 0>" },
+  {_START_OPTION_SYMBOL_1         , 0             , "<start option symbol 1>" },
+  {_END_OPTION_SYMBOL_0           , 0             , "<end option symbol 0>" },
+  {_END_OPTION_SYMBOL_1           , 0             , "<end option symbol 1>" },
 
   /*
    * ------------------------------------------
@@ -246,10 +247,10 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    */
   /* -------------------------------------------
-  {symboli                        , descriptions
+  {symboli,                       isInAnExceptionb, descriptions
   ---------------------------------------------- */
-  {_FIRST_TERMINAL_CHARACTER_MANY,  "<first terminal character many>" },
-  {_SECOND_TERMINAL_CHARACTER_MANY, "<second terminal character many>" },
+  {_FIRST_TERMINAL_CHARACTER_MANY , 0             , "<first terminal character many>" },
+  {_SECOND_TERMINAL_CHARACTER_MANY, 0             , "<second terminal character many>" },
   /*
    * syntax = {gap separator}, gap free symbol, {gap separator}, {gap free symbol, {gap separator}}
    *
@@ -262,11 +263,11 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    */
   /* ----------------------------------------------
-  {symboli                  , descriptions
+  {symboli,                       isInAnExceptionb, descriptions
   -------------------------------------------------- */
-  {_GAP_SEPARATOR_ANY       , "<gap separator any>" },
-  {_GAP_SYMBOL_UNIT         , "<gap symbol unit>" },
-  {_GAP_SYMBOL_UNIT_MANY    , "<gap symbol unit many>" },
+  {_GAP_SEPARATOR_ANY       , 0             , "<gap separator any>" },
+  {_GAP_SYMBOL_UNIT         , 0             , "<gap symbol unit>" },
+  {_GAP_SYMBOL_UNIT_MANY    , 0             , "<gap symbol unit many>" },
   /*
    * commentless symbol = terminal character
    *                       - (letter
@@ -292,7 +293,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *                     | special sequence
    *
    */
-  {_COMMENTLESS_SYMBOL_TERMINAL_CHARACTER , "<commentless symbol terminal character>" },
+  {_COMMENTLESS_SYMBOL_TERMINAL_CHARACTER , 0             , "<commentless symbol terminal character>" },
   /*
    * integer = decimal digit, {decimal digit}
    *
@@ -310,9 +311,9 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    *
    */
   /* ------------------------------------------
-  {symboli                       , descriptions
+  {symboli,                       isInAnExceptionb, descriptions
   --------------------------------------------- */
-  {_META_IDENTIFIER_CHARACTER_ANY, "<meta identifier character any>" },
+  {_META_IDENTIFIER_CHARACTER_ANY, 0             , "<meta identifier character any>" },
   /*
    * special sequence = special sequence symbol, {special sequence character}, special sequence symbol
    *
@@ -322,9 +323,9 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <special sequence> = <special sequence symbol> <special sequence character any> <special sequence symbol>
    */
   /* -------------------------------------------
-  {symboli                        , descriptions
+  {symboli,                       isInAnExceptionb, descriptions
   ---------------------------------------------- */
-  {_SPECIAL_SEQUENCE_CHARACTER_ANY, "<special sequence character any>" },
+  {_SPECIAL_SEQUENCE_CHARACTER_ANY, 0             , "<special sequence character any>" },
   /*
    * special sequence character = terminal character - special sequence symbol
    *
@@ -343,9 +344,9 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <bracketed textual comment> = <start comment symbol> <comment symbol any> <end comment symbol>
    */
   /* -------------------------------
-  {symboli            , descriptions
+  {symboli,                       isInAnExceptionb, descriptions
   ---------------------------------- */
-  {_COMMENT_SYMBOL_ANY, "<comment symbol any>" },
+  {_COMMENT_SYMBOL_ANY, 0             , "<comment symbol any>" },
   /*
    * syntax = {bracketed textual comment}, commentless symbol, {bracketed textual comment}, {commentless symbol, {bracketed textual comment}}
    *
@@ -357,11 +358,11 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
    * <syntax> = <bracketed textual comment any> <commentless symbol unit many>
    */
   /* ------------------------------------------
-  {symboli                       , descriptions
+  {symboli,                       isInAnExceptionb, descriptions
   --------------------------------------------- */
-  {_BRACKETED_TEXTUAL_COMMENT_ANY, "<bracketed textual comment any>" },
-  {_COMMENTLESS_SYMBOL_UNIT      , "<commentless symbol unit>" },
-  {_COMMENTLESS_SYMBOL_UNIT_MANY,  "<commentless symbol unit many>" },
+  {_BRACKETED_TEXTUAL_COMMENT_ANY, 0             , "<bracketed textual comment any>" },
+  {_COMMENTLESS_SYMBOL_UNIT      , 0             , "<commentless symbol unit>" },
+  {_COMMENTLESS_SYMBOL_UNIT_MANY , 0             , "<commentless symbol unit many>" },
   /*
    * syntax = syntax rule, {syntax rule}
    *
@@ -390,7 +391,7 @@ static marpaEBNFSymbol_t marpaEBNFSymbolArray[] = {
   /* ---------------------------------
   {symboli              , descriptions
   ------------------------------------ */
-  {_DEFINITIONS_SEQUENCE, "<definitions sequence>" },
+  {_DEFINITIONS_SEQUENCE, 0             , "<definitions sequence>" },
 };
 
 static marpaEBNFRule_t marpaEBNFRuleArray[] = {
@@ -1206,10 +1207,10 @@ static inline short _marpaEBNF_okSymbolCallbackb(void *userDatavp, genericStack_
 {
   const static char  funcs[]          = "_marpaEBNF_okSymbolCallbackb";
   marpaEBNF_t       *marpaEBNFp       = (marpaEBNF_t *) userDatavp;
-  genericLogger_t   *genericLoggerp   = marpaEBNFp->marpaEBNFOption.genericLoggerp;
-  char              *descriptions     = _marpaEBNF_symbolDescription(marpaEBNFp, symboli);
   size_t             parentStackUsedl = GENERICSTACK_USED(parentRuleiStackp);
   short              rcb              = 1;
+  genericLogger_t   *genericLoggerp;
+  char              *descriptions;
   int                grandParentRulei;
   marpaEBNFRule_t   *grandParentrulep;
   char              *grandParentDescriptions;
@@ -1219,15 +1220,19 @@ static inline short _marpaEBNF_okSymbolCallbackb(void *userDatavp, genericStack_
   if (parentStackUsedl > 2) {
     grandParentRulei = GENERICSTACK_GET_INT(parentRuleiStackp, parentStackUsedl - 2);
     if (GENERICSTACK_ERROR(parentRuleiStackp)) {
+      genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
+      descriptions = _marpaEBNF_symbolDescription(marpaEBNFp, symboli);
       MARPAEBNF_ERRORF(genericLoggerp, funcs, "Symbol %s: parentRuleiStackp get failure, %s", descriptions, strerror(errno));
       rcb = 0;
     } else {
       /* Is rulei an exception of grandParentRulei ? */
       grandParentrulep = &(marpaEBNFp->ruleArrayp[grandParentRulei]);
-      grandParentDescriptions = _marpaEBNF_symbolDescription(marpaEBNFp, grandParentrulep->lhsSymboli);
       maxi = (int) grandParentrulep->rhsExceptl;
       for (i = 0; i < maxi; i++) {
 	if (grandParentrulep->rhsExceptp[i] == symboli) {
+	  genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
+	  descriptions = _marpaEBNF_symbolDescription(marpaEBNFp, symboli);
+	  grandParentDescriptions = _marpaEBNF_symbolDescription(marpaEBNFp, grandParentrulep->lhsSymboli);
 	  MARPAEBNF_INFOF(genericLoggerp, "Symbol %s: found as %s exception", descriptions, grandParentDescriptions);
 	  rcb = -1;
 	  break;
@@ -1236,16 +1241,20 @@ static inline short _marpaEBNF_okSymbolCallbackb(void *userDatavp, genericStack_
     }
   }
 
-  if (rcb) {
+  if (rcb == 1) {
     /* Manage string context */
     switch (symboli) {
     case FIRST_QUOTE_SYMBOL:
     case SECOND_QUOTE_SYMBOL:
       marpaEBNFp->stringContextb = ~marpaEBNFp->stringContextb;
+      genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
+      descriptions = _marpaEBNF_symbolDescription(marpaEBNFp, symboli);
       MARPAEBNF_INFOF(genericLoggerp, "Symbol %s: string context is %s", descriptions, marpaEBNFp->stringContextb ? "starting" : "ending");
       break;
     case OTHER_CHARACTER:
       if (! marpaEBNFp->stringContextb) {
+	descriptions = _marpaEBNF_symbolDescription(marpaEBNFp, symboli);
+	genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
 	MARPAEBNF_INFOF(genericLoggerp, "Symbol %s: rejected because not in string context", descriptions);
 	rcb = -1;
       }
@@ -1255,7 +1264,11 @@ static inline short _marpaEBNF_okSymbolCallbackb(void *userDatavp, genericStack_
     }
   }
 
+#ifndef MARPAEBNF_NTRACE
+  genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
   MARPAEBNF_TRACEF(genericLoggerp, funcs, "Symbol %s: return %d", descriptions, (int) rcb);
+#endif
+
   return rcb;
 }
 
