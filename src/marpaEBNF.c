@@ -1222,7 +1222,7 @@ static inline short _marpaEBNF_okSymbolCallbackb(void *userDatavp, genericStack_
     if (GENERICSTACK_ERROR(parentRuleiStackp)) {
       genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
       descriptions = _marpaEBNF_symbolDescription(marpaEBNFp, symboli);
-      MARPAEBNF_ERRORF(genericLoggerp, funcs, "Symbol %s: parentRuleiStackp get failure, %s", descriptions, strerror(errno));
+      MARPAEBNF_ERRORF(genericLoggerp, funcs, "Symbol %s: parentRuleiStackp get failure, %s", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), strerror(errno));
       rcb = 0;
     } else {
       /* Is rulei an exception of grandParentRulei ? */
@@ -1233,7 +1233,7 @@ static inline short _marpaEBNF_okSymbolCallbackb(void *userDatavp, genericStack_
 	  genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
 	  descriptions = _marpaEBNF_symbolDescription(marpaEBNFp, symboli);
 	  grandParentDescriptions = _marpaEBNF_symbolDescription(marpaEBNFp, grandParentrulep->lhsSymboli);
-	  MARPAEBNF_INFOF(genericLoggerp, "Symbol %s: found as %s exception", descriptions, grandParentDescriptions);
+	  MARPAEBNF_INFOF(genericLoggerp, "Symbol %s: found as %s exception", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), grandParentDescriptions);
 	  rcb = -1;
 	  break;
 	}
@@ -1249,13 +1249,13 @@ static inline short _marpaEBNF_okSymbolCallbackb(void *userDatavp, genericStack_
       marpaEBNFp->stringContextb = ~marpaEBNFp->stringContextb;
       genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
       descriptions = _marpaEBNF_symbolDescription(marpaEBNFp, symboli);
-      MARPAEBNF_INFOF(genericLoggerp, "Symbol %s: string context is %s", descriptions, marpaEBNFp->stringContextb ? "starting" : "ending");
+      MARPAEBNF_INFOF(genericLoggerp, "Symbol %s: string context is %s", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), marpaEBNFp->stringContextb ? "starting" : "ending");
       break;
     case OTHER_CHARACTER:
       if (! marpaEBNFp->stringContextb) {
 	descriptions = _marpaEBNF_symbolDescription(marpaEBNFp, symboli);
 	genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
-	MARPAEBNF_INFOF(genericLoggerp, "Symbol %s: rejected because not in string context", descriptions);
+	MARPAEBNF_INFOF(genericLoggerp, "Symbol %s: rejected because not in string context", _marpaEBNF_symbolDescription(marpaEBNFp, symboli));
 	rcb = -1;
       }
       break;
@@ -1265,8 +1265,7 @@ static inline short _marpaEBNF_okSymbolCallbackb(void *userDatavp, genericStack_
   }
 
 #ifndef MARPAEBNF_NTRACE
-  genericLoggerp = marpaEBNFp->marpaEBNFOption.genericLoggerp;
-  MARPAEBNF_TRACEF(genericLoggerp, funcs, "Symbol %s: return %d", descriptions, (int) rcb);
+  MARPAEBNF_TRACEF(marpaEBNFp->marpaEBNFOption.genericLoggerp, funcs, "Symbol %s: return %d", _marpaEBNF_symbolDescription(marpaEBNFp, symboli), (int) rcb);
 #endif
 
   return rcb;
@@ -1276,40 +1275,19 @@ static inline short _marpaEBNF_okSymbolCallbackb(void *userDatavp, genericStack_
 static inline short  _marpaEBNF_valueRuleCallback(void *userDatavp, int rulei, int arg0i, int argni, int resulti)
 /****************************************************************************/
 {
-  const static char  funcs[]          = "_marpaEBNF_valueRuleCallback";
-  marpaEBNF_t       *marpaEBNFp       = (marpaEBNF_t *) userDatavp;
-  genericLogger_t   *genericLoggerp   = marpaEBNFp->marpaEBNFOption.genericLoggerp;
-  marpaEBNFRule_t   *rulep            = &(marpaEBNFp->ruleArrayp[rulei]);
-  char              *descriptions     = _marpaEBNF_symbolDescription(marpaEBNFp, rulep->lhsSymboli);
-  short              rcb              = 1;
-
-  MARPAEBNF_TRACEF(genericLoggerp, funcs, "Rule %s [%d..%d] => %d, return %d", descriptions, arg0i, argni, resulti, (int) rcb);
-  return rcb;
+  return 1;
 }
 
 /****************************************************************************/
 static inline short  _marpaEBNF_valueSymbolCallback(void *userDatavp, int symboli, int argi, int resulti)
 /****************************************************************************/
 {
-  const static char  funcs[]          = "_marpaEBNF_valueSymbolCallback";
-  marpaEBNF_t       *marpaEBNFp       = (marpaEBNF_t *) userDatavp;
-  genericLogger_t   *genericLoggerp   = marpaEBNFp->marpaEBNFOption.genericLoggerp;
-  short              rcb              = 1;
-
-  MARPAEBNF_TRACEF(genericLoggerp, funcs, "return %d", (int) rcb);
-  return rcb;
+  return 1;
 }
 
 /****************************************************************************/
 static inline short  _marpaEBNF_valueNullingCallback(void *userDatavp, int symboli, int resulti)
 /****************************************************************************/
 {
-  const static char  funcs[]          = "_marpaEBNF_valueNullingCallback";
-  marpaEBNF_t       *marpaEBNFp       = (marpaEBNF_t *) userDatavp;
-  genericLogger_t   *genericLoggerp   = marpaEBNFp->marpaEBNFOption.genericLoggerp;
-  char              *descriptions     = _marpaEBNF_symbolDescription(marpaEBNFp, symboli);
-  short              rcb              = 1;
-
-  MARPAEBNF_TRACEF(genericLoggerp, funcs, "Rule %s => %d, return %d", descriptions, resulti, (int) rcb);
-  return rcb;
+  return 1;
 }
