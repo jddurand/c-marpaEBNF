@@ -634,7 +634,6 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
   short                          okb;
   size_t                         lengthl;
   short                          rci;
-  int                            valuei;
   
   /* Initialize sensible data used in the err section */
   marpaEBNFp->inputStackp  = NULL;
@@ -883,7 +882,7 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
     }
 
     if (lengthl > 0) {
-      size_t alternativel;
+      int alternativei;
 #ifndef MARPAEBNF_NTRACE
       int    nalternativei;
 #endif
@@ -909,8 +908,8 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 #ifndef MARPAEBNF_NTRACE
       nalternativei = 0;
 #endif
-      for (alternativel = 0; alternativel < GENERICSTACK_USED(alternativeStackp); alternativel++) {
-	symboli = GENERICSTACK_GET_INT(alternativeStackp, alternativel);
+      for (alternativei = 0; alternativei < GENERICSTACK_USED(alternativeStackp); alternativei++) {
+	symboli = GENERICSTACK_GET_INT(alternativeStackp, alternativei);
         if (GENERICSTACK_ERROR(alternativeStackp)) {
           MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_GET_INT error, %s", strerror(errno));
           goto err;
@@ -955,8 +954,8 @@ short marpaEBNF_grammarb(marpaEBNF_t *marpaEBNFp, char *grammars)
 			(int) (p - grammars),
 			(int) (grammarLengthl - 1),
 			nalternativei);
-	for (alternativel = 0; alternativel < GENERICSTACK_USED(alternativeStackp); alternativel++) {
-	  symboli = GENERICSTACK_GET_INT(alternativeStackp, alternativel);
+	for (alternativei = 0; alternativei < GENERICSTACK_USED(alternativeStackp); alternativei++) {
+	  symboli = GENERICSTACK_GET_INT(alternativeStackp, alternativei);
 	  if (GENERICSTACK_ERROR(alternativeStackp)) {
 	    MARPAEBNF_ERRORF(marpaEBNFp->marpaEBNFOption.genericLoggerp, "GENERICSTACK_GET_INT error, %s", strerror(errno));
 	    goto err;
@@ -1138,7 +1137,7 @@ static inline char *_marpaEBNF_symbolDescription(void *userDatavp, int symboli)
 static inline void _marpaEBNF_inputStackFree(marpaEBNF_t *marpaEBNFp)
 /****************************************************************************/
 {
-  size_t i;
+  int i;
   
   if (marpaEBNFp->inputStackp != NULL) {
     for (i = 0; i < GENERICSTACK_USED(marpaEBNFp->inputStackp); i++) {
@@ -1157,7 +1156,7 @@ static inline void _marpaEBNF_inputStackFree(marpaEBNF_t *marpaEBNFp)
 static inline void _marpaEBNF_outputStackFree(marpaEBNF_t *marpaEBNFp)
 /****************************************************************************/
 {
-  size_t i;
+  int i;
   
   if (marpaEBNFp->outputStackp != NULL) {
     for (i = 0; i < GENERICSTACK_USED(marpaEBNFp->outputStackp); i++) {
